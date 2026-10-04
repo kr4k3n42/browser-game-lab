@@ -34,7 +34,8 @@ const helmet=document.querySelector<HTMLElement>('#helmet')!;
 let impactFlash=0;
 function updateCollisionWarning(dt:number){
   impactFlash=Math.max(0,impactFlash-dt);
-  const danger=cargo.some((c,i)=>{
+  let imminent=false;
+  const danger=cargo.map((c,i)=>{
     if(held===i)return false;
     const relative=velocity.subtract(c.velocity),offset=c.root.position.subtract(position);
     const speedSquared=relative.lengthSquared();
@@ -42,11 +43,18 @@ function updateCollisionWarning(dt:number){
     const distance=offset.length(),closing=Vector3.Dot(relative,offset)/Math.max(distance,.001);
     const time=Vector3.Dot(offset,relative)/speedSquared;
     // Predict a near pass in the next five seconds, rather than warning on speed alone.
-    return closing>1&&time>0&&time<5&&offset.subtract(relative.scale(time)).length()<2.5;
-  });
+    const risk=closing>1&&time>0&&time<5&&offset.subtract(relative.scale(time)).length()<2.5;
+    if(risk&&(distance<2.5||time<1.2))imminent=true;
+    return risk;
+  }).some(Boolean);
   helmet.classList.toggle('collision-warning',danger&&impactFlash===0);
   helmet.classList.toggle('hard-impact',impactFlash>0);
   helmet.style.setProperty('--impact-opacity',String(Math.min(1,impactFlash/.3)));
+  const stable=attached?velocity.subtract(cargo[held].velocity).length()<.02:velocity.length()<.02&&angular.length()<.005;
+  const state=imminent||impactFlash>0?'imminent':danger?'warning':stable?'stable':'drifting';
+  flightStatus.dataset.state=state;flightStatus.textContent='';
+  flightStatus.setAttribute('aria-label',state==='imminent'?'Collision imminent or hard impact':state==='warning'?'Impact warning':state==='stable'?'Stable':'Drifting');
+  flightStatus.title=flightStatus.getAttribute('aria-label')!;
 }
 // Navigation stays on the helmet, independent of the head-glance HUD offset.
 const navigation=document.createElement('div');navigation.id='edge-navigation';
@@ -216,7 +224,82 @@ const keys=new Set<string>();const goal=document.querySelector('#goal')!,telemet
 const actionLabels:Record<string,string>={KeyQ:'Roll left',KeyW:'Forward',KeyE:'Roll right',KeyA:'Strafe left',KeyS:'Stabilize',KeyD:'Strafe right',KeyZ:'Headward',KeyX:'Reverse',KeyC:'Footward',Space:'Grab',Enter:'Anchor',NumpadEnter:'Anchor',ArrowUp:'Pitch up',ArrowDown:'Pitch down',ArrowLeft:'Yaw left',ArrowRight:'Yaw right',Tab:'Palm diagnostics',MouseLeft:'Head glance',MouseRight:'Head glance',ShiftLeft:'Headward',ShiftRight:'Headward'};
 document.querySelector('#left-keys')!.innerHTML=['Q','W','E','A','S','D','Z','X','C'].map(letter=>'<kbd data-code="Key'+letter+'">'+letter+'</kbd>').join('');
 const keyTiles=Array.from(document.querySelectorAll<HTMLElement>('[data-code]'));
+let advancedTelemetry=false;
+const ctrlTile=document.createElement('kbd');ctrlTile.className='ctrl-key';ctrlTile.textContent='CTRL';
+document.querySelector('.left-cluster')!.append(ctrlTile);
+window.addEventListener('keydown',event=>{
+  if((event.code==='ControlLeft'||event.code==='ControlRight')&&!event.repeat){
+    advancedTelemetry=!advancedTelemetry;ctrlTile.classList.toggle('pressed',advancedTelemetry);
+    ctrlTile.setAttribute('aria-label','Advanced telemetry '+(advancedTelemetry?'on':'off'));
+  }
+});
 const actionName=document.querySelector('#action-name')!;
+const gameTitle=document.createElement('div');gameTitle.id='game-title';gameTitle.textContent='STILL';document.body.append(gameTitle);
+const flightStatus=document.createElement('div');flightStatus.id='flight-status';document.body.append(flightStatus);
+const motionReadout=document.createElement('div');motionReadout.id='motion-readout';document.body.append(motionReadout);
+const driftInstrument=document.createElement('div');driftInstrument.id='drift-instrument';
+driftInstrument.innerHTML='<div class="drift-dial" aria-label="Suit-relative lateral drift"><span class="dial-up">+Y</span><span class="dial-right">+X</span><span class="drift-dot"></span></div><div class="axial-gauge"><span>FWD</span><div class="axial-track"><span class="axial-fill"></span></div><span>REV</span></div>';
+document.body.append(driftInstrument);
+driftInstrument.querySelectorAll('.axial-gauge>span').forEach(label=>label.remove());
+const rotationInstrument=document.createElement('div');rotationInstrument.className='rotation-instrument';
+rotationInstrument.innerHTML='<div class="rotation-heading">ROTATION</div><div class="drift-dial rotation-dial" aria-label="Pitch and yaw rotation rates"><span class="dial-up">P</span><span class="dial-right">Y</span><span class="rotation-dot"></span></div><div class="roll-gauge"><span>R</span><div class="axis-track"><span class="roll-fill"></span></div></div>';
+driftInstrument.append(rotationInstrument);
+rotationInstrument.querySelector('.rotation-heading')!.remove();
+const rollGauge=rotationInstrument.querySelector<HTMLElement>('.roll-gauge')!;
+rollGauge.querySelector('span')!.remove();
+driftInstrument.querySelector('.axial-gauge')!.append(rollGauge);
+driftInstrument.querySelector<HTMLElement>('.dial-up')!.textContent='Y';
+const xLabel=driftInstrument.querySelector<HTMLElement>('.dial-right')!;
+xLabel.textContent='X';xLabel.className='dial-left';
+const rotationDot=rotationInstrument.querySelector<HTMLElement>('.rotation-dot')!,rollFill=rollGauge.querySelector<HTMLElement>('.roll-fill')!;
+const driftDot=driftInstrument.querySelector<HTMLElement>('.drift-dot')!,axialFill=driftInstrument.querySelector<HTMLElement>('.axial-fill')!;
+const instruments=[{title:'VELOCITY · m/s',axes:['X','Y','Z'],scale:2},{title:'ROTATION · °/s',axes:['P','Y','R'],scale:30}];
+const motionTiles=instruments.flatMap(instrument=>{
+  const group=document.createElement('section');group.className='motion-group';
+  const heading=document.createElement('div');heading.className='motion-heading';heading.textContent=instrument.title;group.append(heading);
+  const row=document.createElement('div');row.className='motion-axes';group.append(row);motionReadout.append(group);
+  return instrument.axes.map(axis=>{
+    const tile=document.createElement('div');tile.className='motion-axis';
+    tile.innerHTML='<span class="axis-label">'+axis+'</span><span class="axis-value">0.00</span><div class="axis-track"><span class="axis-fill"></span></div>';
+    tile.title=instrument.title+' · '+axis+' · bar full scale ±'+instrument.scale;
+    row.append(tile);return {tile,value:tile.querySelector<HTMLElement>('.axis-value')!,fill:tile.querySelector<HTMLElement>('.axis-fill')!,scale:instrument.scale};
+  });
+});
+function updateMotionReadout(){
+  motionReadout.hidden=!advancedTelemetry;
+  const local=rotate(velocity,body.conjugate());
+  // Fixed ±2 m/s scale, clamped at the rim; numbers retain the full readings.
+  let dialX=Math.abs(local.x)<.01?0:local.x/2,dialY=Math.abs(local.y)<.01?0:local.y/2;
+  const radius=Math.hypot(dialX,dialY);
+  if(radius>1){dialX/=radius;dialY/=radius;}
+  driftDot.style.transform=`translate(${dialX*36}px,${-dialY*36}px)`;
+  const axial=Math.abs(local.z)<.01?0:Math.max(-1,Math.min(1,local.z/2));
+  axialFill.style.top=`${axial>0?50-axial*50:50}%`;
+  axialFill.style.height=`${Math.abs(axial)*50}%`;
+  driftInstrument.querySelector('.drift-dial')!.classList.toggle('gauge-moving',Math.hypot(local.x,local.y)>=.02);
+  driftInstrument.querySelector('.axial-track')!.classList.toggle('gauge-moving',Math.abs(local.z)>=.02);
+  const degrees=180/Math.PI;
+  let yaw=angular.y*degrees/30,pitch=angular.x*degrees/30;
+  if(Math.abs(angular.y*degrees)<.05)yaw=0;
+  if(Math.abs(angular.x*degrees)<.05)pitch=0;
+  const rotationRadius=Math.hypot(yaw,pitch);
+  if(rotationRadius>1){yaw/=rotationRadius;pitch/=rotationRadius;}
+  rotationDot.style.transform=`translate(${yaw*36}px,${pitch*36}px)`;
+  const roll=Math.abs(angular.z*degrees)<.05?0:Math.max(-1,Math.min(1,angular.z*degrees/30));
+  rollFill.style.left=`${roll<0?50-Math.abs(roll)*50:50}%`;
+  rollFill.style.width=`${Math.abs(roll)*50}%`;
+  rotationInstrument.querySelector('.rotation-dial')!.classList.toggle('gauge-moving',Math.hypot(angular.x,angular.y)*degrees>=.1);
+  rollGauge.querySelector('.axis-track')!.classList.toggle('gauge-moving',Math.abs(angular.z)*degrees>=.1);
+  const values=[local.x,local.y,local.z,angular.x*degrees,angular.y*degrees,angular.z*degrees];
+  motionTiles.forEach((instrument,i)=>{
+    const raw=values[i],value=Math.abs(raw)<(i<3?.01:.05)?0:raw;
+    instrument.value.textContent=(value>0?'+':'')+value.toFixed(2);
+    const extent=Math.min(1,Math.abs(value)/instrument.scale)*50;
+    instrument.fill.style.left=`${value<0?50-extent:50}%`;
+    instrument.fill.style.width=`${extent}%`;
+    instrument.tile.classList.toggle('motion-active',value!==0);
+  });
+}
 actionLabels.Tab='Suit reassurance';
 const pressTimes=new Map<string,number>();
 let latestAction='';
@@ -280,6 +363,8 @@ if(active&&!paused){
 }
 
 updateKeyboard();
+flightStatus.textContent=attached?'ANCHORED':velocity.length()<.02&&angular.length()<.005?'STABLE':'DRIFTING';
+updateMotionReadout();
 if(!active)impactFlash=0;
 updateCollisionWarning(paused?0:dt);
 starShell.position.copyFrom(position);

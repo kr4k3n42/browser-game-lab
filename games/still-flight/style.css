@@ -55,5 +55,58 @@ kbd.pressed{background:#91e9df;color:#06131a;box-shadow:0 0 16px #91e9df55}
 @media(prefers-reduced-motion:reduce){#helmet.collision-warning::after{animation:none;opacity:.45}}
 #suit-reassurance{position:fixed;left:9%;top:36%;width:min(280px,30vw);padding:18px 20px;border:1px solid #91e9df88;border-radius:14px;background:transparent;color:#a3e7df;font:14px/1.65 system-ui;text-shadow:0 0 8px #43dacb66;pointer-events:none}
 #suit-reassurance[hidden]{display:none}
+#hud #goal,#hud #level-instructions,#hud #message{display:none}
+#hud>span,#hud #telemetry{display:none}
+#game-title,#flight-status{position:fixed;left:50%;transform:translateX(-50%);text-align:center;pointer-events:none;color:#86eddb;text-shadow:0 0 10px #43dacb}
+#game-title{top:10px;font-size:11px;letter-spacing:6px;padding-left:6px}
+#flight-status{top:48px;font-size:13px;letter-spacing:2px}
+#motion-readout{position:fixed;top:78px;left:50%;transform:translateX(-50%);width:min(440px,78vw);display:grid;grid-template-columns:1fr 1fr;gap:24px;color:#86cfd2;font:11px/1.6 monospace;text-shadow:0 0 6px #43dacb44;pointer-events:none}
+.motion-heading{text-align:center;font-size:9px;letter-spacing:1.5px;margin-bottom:7px;opacity:.8}
+.motion-axes{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.motion-axis{text-align:center;opacity:.6}.motion-active{opacity:1}
+.axis-label{display:block;font-size:10px}.axis-value{display:block;font-variant-numeric:tabular-nums}
+.axis-track{position:relative;height:5px;margin-top:5px;background:#86cfd21c;border-radius:2px}
+.axis-track::after{content:'';position:absolute;left:50%;top:-2px;bottom:-2px;width:1px;background:#86cfd288}
+.axis-fill{position:absolute;top:0;height:100%;background:#86cfd2;border-radius:2px}
+#motion-readout{top:198px}
+#drift-instrument{position:fixed;top:83px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:24px;pointer-events:none;color:#86cfd2;font:9px monospace}
+.drift-dial{position:relative;width:88px;height:88px;border:1px solid #86cfd288;border-radius:50%;background:transparent}
+.drift-dial::before,.drift-dial::after{content:'';position:absolute;background:#86cfd233}
+.drift-dial::before{left:50%;top:7px;bottom:7px;width:1px}
+.drift-dial::after{top:50%;left:7px;right:7px;height:1px}
+.drift-dot{position:absolute;left:calc(50% - 3px);top:calc(50% - 3px);width:6px;height:6px;border-radius:50%;background:#a3f9e6;box-shadow:0 0 8px #67f9d688}
+.dial-up{position:absolute;top:-14px;left:0;width:100%;text-align:center}.dial-right{position:absolute;left:94px;top:38px}
+.axial-gauge{display:flex;flex-direction:column;align-items:center;gap:5px;margin-left:8px;font-size:8px}
+.axial-track{position:relative;width:7px;height:70px;border:1px solid #86cfd266;border-radius:3px}
+.axial-track::after{content:'';position:absolute;top:50%;left:-4px;right:-4px;height:1px;background:#86cfd288}
+.axial-fill{position:absolute;left:0;width:100%;background:#86cfd2;border-radius:2px}
+.rotation-instrument{position:relative;margin-left:12px}
+.rotation-heading{position:absolute;top:-27px;left:0;width:88px;text-align:center;font-size:8px;letter-spacing:1px;opacity:.8}
+.rotation-dot{position:absolute;left:calc(50% - 3px);top:calc(50% - 3px);width:6px;height:6px;border-radius:50%;background:#a3f9e6;transform:translate(0,0);box-shadow:0 0 8px #67f9d688}
+.roll-gauge{position:absolute;top:94px;left:0;width:88px;display:flex;align-items:center;gap:7px;font-size:8px}
+.roll-gauge .axis-track{flex:1;margin:0}.roll-fill{position:absolute;top:0;height:100%;background:#86cfd2;border-radius:2px}
+#drift-instrument{top:96px;gap:20px}
+#motion-readout{top:220px}
+.dial-left{position:absolute;right:94px;top:38px}
+.axial-gauge{position:relative;width:24px;margin-left:0}
+.axial-gauge .roll-gauge{top:84px;left:50%;transform:translateX(-50%);width:54px}
+.axial-gauge .roll-gauge .axis-track{width:54px;flex:none}
+.rotation-instrument{margin-left:0}
+#flight-status{display:none}
+.drift-dial.gauge-moving,.axial-track.gauge-moving{border-color:#c6aa55}
+.roll-gauge .axis-track{border:1px solid #86cfd266;background:transparent}
+.roll-gauge .axis-track.gauge-moving{border-color:#c6aa55}
+#motion-readout[hidden]{display:none}
+#hud #gesture{display:none}
+.left-cluster{position:relative}
+#flight-status{top:81px;width:12px;height:12px;border-radius:50%;border:1px solid #c6aa55;background:transparent;text-shadow:none}
+#flight-status[data-state="stable"]{background:#91cba7;border-color:#91cba7;box-shadow:0 0 8px #91cba744}
+#flight-status[data-state="warning"]{background:#c6aa55;border-color:#c6aa55;animation:status-caution 1.25s ease-in-out infinite}
+#flight-status[data-state="imminent"]{background:#c41000;border-color:#c41000;box-shadow:0 0 10px #c4100066}
+@keyframes status-caution{0%,100%{opacity:.4}50%{opacity:1}}
+@media(prefers-reduced-motion:reduce){#flight-status[data-state="warning"]{animation:none}}
+.ctrl-key{position:absolute;left:calc(50% - 95px);bottom:0;width:48px;font-size:10px}
+@media(max-width:700px){.ctrl-key{left:calc(50% - 66px);width:32px;font-size:8px}}
+@media(max-width:700px){#motion-readout{font-size:9px;gap:12px;width:82vw}.motion-heading{font-size:8px;letter-spacing:.5px}.motion-axes{gap:5px}}
 @media(max-width:700px){#suit-reassurance{left:8%;width:38vw;padding:12px;font-size:12px}}
 
