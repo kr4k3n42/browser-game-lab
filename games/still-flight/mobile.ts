@@ -2,12 +2,14 @@ import { Quaternion, Vector3 } from '@babylonjs/core';
 
 export function createMobileControls(actions:{start:()=>void;anchor:()=>void;release:()=>void}){
   const mobile=matchMedia('(pointer:coarse)').matches||new URLSearchParams(location.search).has('mobile');
-  const state={mobile,x:0,z:0,roll:0,up:0,down:0,brake:false,grab:false};
+  const state={mobile,portrait:false,x:0,z:0,roll:0,up:0,down:0,brake:false,grab:false};
   if(!mobile)return {state,update:()=>{}};
   document.body.classList.add('mobile-flight');
   const panel=document.createElement('div');panel.id='mobile-controls';
   panel.innerHTML='<p class="mobile-status" role="status">Hold your phone comfortably, then enable tilt.</p><div class="mobile-tools"><button data-action="enable">ENABLE TILT / START</button><button data-action="calibrate">RECENTER</button><button data-action="anchor">ANCHOR</button></div><div class="mobile-holds"><button data-hold="up">UP</button><button data-hold="brake">STABILIZE</button><button data-hold="grab">GRAB</button><button data-hold="down">DOWN</button></div>';
   document.body.append(panel);
+  const rotatePrompt=document.createElement('div');rotatePrompt.id='rotate-phone';rotatePrompt.textContent='Rotate your phone sideways to play STILL';document.body.append(rotatePrompt);
+  const landscape=matchMedia('(orientation: landscape)');
   // Keep reset in the same flow as the touch buttons, not a competing fixed footer.
   const reset=document.querySelector<HTMLButtonElement>('#start')!;
   panel.querySelector('.mobile-tools')!.append(reset);
@@ -35,10 +37,14 @@ export function createMobileControls(actions:{start:()=>void;anchor:()=>void;rel
   });
   panel.querySelector<HTMLButtonElement>('[data-action="enable"]')!.onclick=async()=>{
     try{
+      if(!landscape.matches)return;
       if(!isSecureContext)throw Error('Tilt requires HTTPS. Use the public game link.');
       const sensor=DeviceOrientationEvent as typeof DeviceOrientationEvent&{requestPermission?:()=>Promise<string>};
       if(sensor.requestPermission&&await sensor.requestPermission()!=='granted')throw Error('Motion permission denied. Allow motion access and try again.');
       enabled=true;neutral=null;actions.start();calibrate();
+      const orientation=screen.orientation as ScreenOrientation&{lock?:(mode:string)=>Promise<void>};
+      // Best effort only: iPhone browsers may reject or omit orientation locking.
+      if(orientation?.lock)void orientation.lock('landscape').catch(()=>{});
     }catch(error){enabled=false;clear();status.textContent=error instanceof Error?error.message:'Tilt unavailable on this browser.';}
   };
   panel.querySelector<HTMLButtonElement>('[data-action="calibrate"]')!.onclick=calibrate;
@@ -56,6 +62,8 @@ export function createMobileControls(actions:{start:()=>void;anchor:()=>void;rel
     button.onpointerup=release;button.onpointercancel=release;button.onlostpointercapture=release;
   });
   const suspend=()=>{enabled=false;neutral=null;clear();status.textContent='Tilt paused · tap ENABLE TILT / START to resume.';};
+  const checkOrientation=()=>{state.portrait=!landscape.matches;rotatePrompt.hidden=!state.portrait;if(state.portrait)suspend();};
+  landscape.addEventListener('change',checkOrientation);checkOrientation();
   window.addEventListener('blur',suspend);document.addEventListener('visibilitychange',()=>{if(document.hidden)suspend();});
   screen.orientation?.addEventListener('change',()=>{neutral=null;clear();status.textContent='Orientation changed · hold still to recenter.';});
   const response=(angle:number)=>Math.sign(angle)*Math.min(1,Math.max(0,Math.abs(angle)-3)/17);
