@@ -15,7 +15,7 @@ button { cursor: pointer; }
 [hidden] { display: none !important; }
 
 #game-canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; outline: none; }
-.game-shell { position: fixed; inset: 0; display: flex; flex-direction: column; padding: 25px 30px 23px; pointer-events: none; background: linear-gradient(180deg, rgba(15,9,7,.82), transparent 25%, transparent 65%, rgba(15,8,6,.62)); }
+.game-shell { position: fixed; inset: 0; display: flex; flex-direction: column; padding: 25px 30px 23px; pointer-events: none; background: linear-gradient(180deg, rgba(10,20,16,.72), transparent 20%, transparent 76%, rgba(10,16,13,.8)); }
 .topbar { display: flex; align-items: center; justify-content: space-between; gap: 2rem; pointer-events: auto; }
 .back-link { color: rgba(255,244,229,.72); text-decoration: none; font-size: .78rem; letter-spacing: .01em; transition: color 160ms ease; }
 .back-link:hover { color: #fff4e5; }
@@ -29,16 +29,16 @@ button { cursor: pointer; }
 #streak-value { color: #e3a268; }
 #lives-value { color: #e87959; letter-spacing: .08em; white-space: nowrap; }
 
-.game-ui { display: flex; flex: 1; flex-direction: column; justify-content: center; align-items: center; pointer-events: none; }
-.glass-panel { width: min(490px, calc(100vw - 40px)); padding: clamp(26px, 4vw, 44px); border: 1px solid rgba(255,224,184,.2); border-radius: 21px; pointer-events: auto; background: linear-gradient(135deg, rgba(39,23,18,.91), rgba(20,13,13,.86)); box-shadow: 0 30px 100px rgba(0,0,0,.38), inset 0 1px rgba(255,255,255,.06); backdrop-filter: blur(18px); }
-.intro-panel { text-align: center; }
+.game-ui { display: flex; flex: 1; flex-direction: column; justify-content: center; align-items: flex-start; pointer-events: none; }
+.glass-panel { width: min(410px, 36vw); margin-left: 2vw; padding: clamp(24px, 2.8vw, 36px); border: 1px solid rgba(228,203,151,.24); border-radius: 10px; pointer-events: auto; background: linear-gradient(135deg, rgba(18,39,31,.94), rgba(14,26,21,.91)); box-shadow: 0 22px 70px rgba(0,0,0,.3), inset 0 1px rgba(255,255,255,.06); backdrop-filter: blur(12px); }
+.intro-panel { text-align: left; }
 .eyebrow { margin: 0 0 13px; color: #e3a268; font-size: .65rem; font-weight: 850; letter-spacing: .2em; text-transform: uppercase; }
 h1, h2, p { margin-top: 0; }
-h1 { margin-bottom: 20px; color: #fff4e5; font-size: clamp(3.1rem, 8vw, 6rem); line-height: .85; letter-spacing: -.075em; }
+h1 { margin-bottom: 20px; color: #fff4e5; font-family: Georgia, "Times New Roman", serif; font-size: clamp(3rem, 4.6vw, 4.8rem); line-height: .94; letter-spacing: -.055em; }
 h1 em { color: #ef8a5b; font-style: normal; }
 h2 { margin-bottom: 0; color: #fff4e5; font-size: clamp(2rem, 4vw, 3.3rem); line-height: .9; letter-spacing: -.065em; }
 .intro-copy { max-width: 390px; margin: 0 auto 24px; color: rgba(255,244,229,.68); font-size: .95rem; line-height: 1.65; }
-.how-to { display: flex; justify-content: center; gap: 16px; margin: 0 auto 28px; color: rgba(255,244,229,.63); font-size: .68rem; }
+.how-to { display: flex; justify-content: space-between; gap: 12px; margin: 0 auto 28px; color: rgba(255,244,229,.63); font-size: .68rem; }
 .how-to span { display: flex; flex-direction: column; gap: 5px; }
 .how-to b { color: #e3a268; font-size: .58rem; letter-spacing: .15em; }
 .primary-button, .serve-button { min-height: 48px; padding: 0 20px; border: 0; border-radius: 999px; color: #29130e; background: #f2c48e; box-shadow: 0 10px 28px rgba(224,118,60,.2); font-size: .78rem; font-weight: 850; letter-spacing: .03em; transition: transform 160ms ease, background 160ms ease, box-shadow 160ms ease; }
@@ -47,7 +47,7 @@ h2 { margin-bottom: 0; color: #fff4e5; font-size: clamp(2rem, 4vw, 3.3rem); line
 .primary-button:hover span { transform: translate(2px, -2px); }
 .micro-copy { margin: 16px 0 0; color: rgba(255,244,229,.34); font-size: .65rem; }
 
-.order-panel { align-self: flex-start; width: min(340px, 34vw); margin: 2vh 0 0 2vw; padding: 20px 22px; border-left: 2px solid #e3a268; pointer-events: auto; background: linear-gradient(90deg, rgba(24,13,11,.79), transparent); }
+.order-panel { align-self: flex-start; width: min(340px, 31vw); margin: 2vh 0 0 2vw; padding: 20px 22px; border: 1px solid rgba(228,203,151,.22); border-left: 2px solid #e3a268; border-radius: 4px; pointer-events: auto; background: rgba(15,32,25,.93); box-shadow: 0 16px 40px rgba(0,0,0,.22); }
 .order-heading { display: flex; align-items: end; justify-content: space-between; gap: 20px; }
 .order-heading .eyebrow { margin-bottom: 9px; }
 .order-heading h2 { font-size: clamp(1.65rem, 3vw, 2.3rem); }
@@ -63,7 +63,7 @@ h2 { margin-bottom: 0; color: #fff4e5; font-size: clamp(2rem, 4vw, 3.3rem); line
 .foam-track i { background: #f4d6ab; }
 .order-hint { margin: 19px 0 0; color: rgba(255,244,229,.43); font-size: .7rem; line-height: 1.45; }
 
-.controls { position: absolute; bottom: 25px; left: 50%; display: flex; align-items: end; gap: 24px; width: min(800px, calc(100vw - 50px)); transform: translateX(-50%); pointer-events: auto; }
+.controls { position: absolute; bottom: 34px; left: 50%; display: flex; align-items: end; gap: 24px; width: min(800px, calc(100vw - 50px)); padding: 14px 20px; border: 1px solid rgba(228,203,151,.18); border-radius: 12px; background: rgba(13,28,22,.92); box-shadow: 0 10px 30px rgba(0,0,0,.2); transform: translateX(-50%); pointer-events: auto; }
 .flow-control { flex: 1; max-width: 280px; }
 .control-label { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
 .control-label strong { color: #f2c48e; font-size: .73rem; }
@@ -79,9 +79,10 @@ input[type="range"]::-moz-range-thumb { width: 13px; height: 13px; border: 3px s
 .serve-button { min-height: 52px; color: #29130e; background: #f2c48e; }
 .serve-button:disabled { cursor: not-allowed; opacity: .32; box-shadow: none; }
 .live-status { position: absolute; right: 0; bottom: -23px; margin: 0; color: rgba(255,244,229,.5); font-size: .66rem; }
-.loading-status { position: absolute; right: 30px; bottom: 23px; color: rgba(255,244,229,.38); font-size: .65rem; pointer-events: none; }
+.loading-status { position: absolute; right: 30px; bottom: 12px; color: rgba(255,244,229,.48); font-size: .65rem; pointer-events: none; }
 
 .result-panel { text-align: center; }
+.result-panel:not([hidden]) ~ .controls { display: none; }
 .result-panel h2 { margin-bottom: 12px; }
 .result-panel > p:not(.eyebrow) { margin-bottom: 25px; color: rgba(255,244,229,.64); font-size: .94rem; line-height: 1.5; }
 .result-breakdown { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 23px; padding-top: 16px; border-top: 1px solid rgba(255,244,229,.12); color: rgba(255,244,229,.5); font-size: .7rem; }
@@ -96,12 +97,26 @@ input[type="range"]::-moz-range-thumb { width: 13px; height: 13px; border: 3px s
   .game-mark { margin-left: 0; }
   .shift-stats { gap: .65rem; }
   .shift-stats div:nth-child(2) { display: none; }
-  .order-panel { width: min(330px, calc(100vw - 34px)); margin: 5vh 0 0; padding-left: 15px; }
-  .controls { bottom: 18px; flex-direction: column; align-items: stretch; gap: 13px; width: calc(100vw - 34px); }
+  .glass-panel { width: min(410px, calc(100vw - 34px)); margin: 0 auto; padding: 24px; }
+  .intro-panel { text-align: center; }
+  h1 { font-size: clamp(3rem, 12vw, 4.4rem); }
+  .order-panel { position: absolute; top: 80px; left: 17px; width: min(330px, calc(100vw - 34px)); margin: 0; padding: 12px 15px; }
+  .order-heading h2 { font-size: 1.65rem; }
+  .order-heading .eyebrow { margin-bottom: 6px; }
+  .targets { margin-top: 13px; gap: 9px; }
+  .order-hint { margin-top: 12px; font-size: .65rem; }
+  .controls { bottom: 28px; flex-direction: column; align-items: stretch; gap: 13px; width: calc(100vw - 34px); padding: 12px 15px; }
   .flow-control { max-width: none; }
   .action-controls { width: 100%; }
   .pour-button, .serve-button { flex: 1; justify-content: center; }
   .live-status { right: auto; left: 0; bottom: -20px; }
-  .loading-status { right: 17px; bottom: 17px; }
+  .loading-status { right: 17px; bottom: 7px; }
   .how-to { gap: 9px; font-size: .62rem; }
+}
+
+@media (max-height: 620px) and (min-width: 721px) {
+  .glass-panel { padding: 22px; }
+  h1 { font-size: 3rem; }
+  .intro-copy { font-size: .82rem; line-height: 1.45; margin-bottom: 16px; }
+  .how-to { margin-bottom: 18px; }
 }

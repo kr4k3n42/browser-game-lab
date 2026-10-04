@@ -2,6 +2,8 @@ import {
   ArcRotateCamera,
   Color3,
   Color4,
+  DirectionalLight,
+  DynamicTexture,
   EngineFactory,
   GlowLayer,
   HemisphericLight,
@@ -9,6 +11,7 @@ import {
   MeshBuilder,
   PointLight,
   Scene,
+  ShadowGenerator,
   StandardMaterial,
   Vector3,
 } from "@babylonjs/core";
@@ -86,6 +89,12 @@ let streamTip: Mesh;
 let tapHandle: Mesh;
 let rim: Mesh;
 let glow: GlowLayer;
+const GLASS_X = 1.15;
+const GLASS_Z = 0.62;
+const GLASS_BASE_Y = 1.57;
+const SPOUT_Y = 3.42;
+const HANDLE_Y = 3.79;
+const bubbles: Mesh[] = [];
 let activeOrder = 0;
 let score = 0;
 let streak = 0;
@@ -118,132 +127,315 @@ function box(name: string, options: Parameters<typeof MeshBuilder.CreateBox>[1],
   return result;
 }
 
-function makeBottle(index: number, x: number, z: number, color: Color3): void {
-  const bottleMaterial = material(`bottle-${index}`, color, scene, color.scale(0.17));
-  const bottle = MeshBuilder.CreateCylinder(`bottle-${index}`, { height: 0.82, diameterTop: 0.18, diameterBottom: 0.42, tessellation: 12 }, scene);
-  bottle.position = new Vector3(x, 1.75 + (index % 2) * 0.04, z);
+// Every texture and prop is generated locally: the room needs no downloaded assets.
+function textureMaterial(name: string, width: number, height: number, draw: (context: CanvasRenderingContext2D) => void): StandardMaterial {
+  const texture = new DynamicTexture(`${name}-texture`, { width, height }, scene, false);
+  draw(texture.getContext() as CanvasRenderingContext2D);
+  texture.update();
+  const result = material(name, Color3.White(), scene);
+  result.diffuseTexture = texture;
+  result.specularColor = new Color3(0.16, 0.13, 0.1);
+  return result;
+}
+
+function cylinder(name: string, height: number, diameter: number, position: Vector3, mat: StandardMaterial): Mesh {
+  const mesh = MeshBuilder.CreateCylinder(name, { height, diameter, tessellation: 24 }, scene);
+  mesh.position = position;
+  mesh.material = mat;
+  return mesh;
+}
+
+function pipe(name: string, path: Vector3[], radius: number, mat: StandardMaterial): Mesh {
+  const mesh = MeshBuilder.CreateTube(name, { path, radius, tessellation: 16, cap: Mesh.CAP_ALL }, scene);
+  mesh.material = mat;
+  return mesh;
+}
+
+function wallSign(name: string, width: number, height: number, position: Vector3, mat: StandardMaterial): Mesh {
+  const sign = MeshBuilder.CreatePlane(name, { width, height }, scene);
+  sign.position = position;
+  sign.rotation.y = Math.PI;
+  sign.material = mat;
+  return sign;
+}
+
+function makeBottle(index: number, x: number, y: number, z: number, color: Color3, label: StandardMaterial, cap: StandardMaterial): void {
+  const bottleMaterial = material(`bottle-glass-${index}`, color, scene);
+  bottleMaterial.specularColor = new Color3(0.65, 0.65, 0.55);
+  bottleMaterial.specularPower = 90;
+  const shape = [new Vector3(0, 0, 0), new Vector3(0.12, 0, 0), new Vector3(0.13, 0.04, 0), new Vector3(0.13, 0.39, 0), new Vector3(0.12, 0.43, 0), new Vector3(0.057, 0.52, 0), new Vector3(0.057, 0.72, 0), new Vector3(0, 0.72, 0)];
+  const bottle = MeshBuilder.CreateLathe(`bottle-${index}`, { shape, tessellation: 16 }, scene);
+  bottle.position = new Vector3(x, y, z);
+  bottle.scaling.y = 0.84 + (index % 3) * 0.09;
   bottle.material = bottleMaterial;
-  const neck = MeshBuilder.CreateCylinder(`bottle-neck-${index}`, { height: 0.28, diameter: 0.13, tessellation: 12 }, scene);
-  neck.position = new Vector3(x, 2.28 + (index % 2) * 0.04, z);
-  neck.material = bottleMaterial;
-  const label = MeshBuilder.CreateTorus(`bottle-label-${index}`, { diameter: 0.28, thickness: 0.018, tessellation: 20 }, scene);
-  label.rotation.x = Math.PI / 2;
-  label.position = new Vector3(x, 1.72 + (index % 2) * 0.04, z - 0.01);
-  label.material = material(`label-${index}`, new Color3(0.92, 0.67, 0.3), scene, new Color3(0.16, 0.06, 0.02));
+  const band = cylinder(`paper-label-${index}`, 0.21, 0.265, new Vector3(x, y + 0.25 * bottle.scaling.y, z), label);
+  band.rotation.y = (index % 4) * 0.27;
+  cylinder(`bottle-cap-${index}`, 0.055, 0.125, new Vector3(x, y + 0.72 * bottle.scaling.y, z), cap);
 }
 
 function makeScene(): void {
   scene = new Scene(engine);
-  scene.clearColor = new Color4(0.035, 0.018, 0.015, 1);
-
-  const camera = new ArcRotateCamera("camera", 1.15, 1.12, 8.6, new Vector3(0, 1.55, 0), scene);
-  camera.lowerRadiusLimit = 8.6;
-  camera.upperRadiusLimit = 8.6;
+  scene.clearColor = new Color4(0.035, 0.043, 0.035, 1);
+  scene.ambientColor = new Color3(0.1, 0.08, 0.065);
+  const camera = new ArcRotateCamera("camera", 1.43, 1.26, 8.5, new Vector3(0, 2.55, -0.15), scene);
+  camera.fov = 0.78;
   camera.inputs.clear();
+  // Keep the work station visible above the touch controls on portrait screens.
+  const frameRoom = (): void => {
+    const portrait = engine.getRenderWidth() / engine.getRenderHeight() < 0.9;
+    camera.radius = portrait ? 8.2 : 8.5;
+    camera.fov = portrait ? 1.04 : 0.78;
+    camera.target.x = portrait ? GLASS_X - 0.22 : 0;
+    camera.target.y = portrait ? 2.45 : 2.55;
+  };
+  frameRoom();
+  engine.onResizeObservable.add(frameRoom);
 
   const ambient = new HemisphericLight("warm-ambient", new Vector3(0, 1, 0), scene);
-  ambient.intensity = 0.72;
-  ambient.diffuse = new Color3(1, 0.68, 0.48);
-  ambient.groundColor = new Color3(0.07, 0.025, 0.02);
-
-  const counterLight = new PointLight("counter-light", new Vector3(-1.2, 3.9, 1.4), scene);
-  counterLight.diffuse = new Color3(1, 0.32, 0.12);
-  counterLight.intensity = 14;
+  ambient.intensity = 0.55;
+  ambient.diffuse = new Color3(1, 0.87, 0.7);
+  ambient.groundColor = new Color3(0.19, 0.14, 0.1);
+  const key = new DirectionalLight("window-and-practical-fill", new Vector3(-0.5, -1, -0.7), scene);
+  key.position = new Vector3(2.5, 7, 4);
+  key.intensity = 1.15;
+  key.diffuse = new Color3(1, 0.83, 0.61);
+  const shadow = new ShadowGenerator(1024, key);
+  shadow.usePercentageCloserFiltering = true;
+  shadow.bias = 0.002;
+  shadow.normalBias = 0.025;
+  shadow.setDarkness(0.3);
+  const counterLight = new PointLight("pint-highlight", new Vector3(1.5, 4.5, 2), scene);
+  counterLight.diffuse = new Color3(1, 0.91, 0.73);
+  counterLight.intensity = 0.8;
   counterLight.range = 8;
-  const signLight = new PointLight("sign-light", new Vector3(1.8, 4.1, -0.5), scene);
-  signLight.diffuse = new Color3(0.95, 0.2, 0.04);
-  signLight.intensity = 16;
-  signLight.range = 10;
+  const shelfLight = new PointLight("back-bar-practical", new Vector3(-1, 4.3, -1.7), scene);
+  shelfLight.diffuse = new Color3(1, 0.73, 0.4);
+  shelfLight.intensity = 0.75;
+  shelfLight.range = 6;
 
-  const floorMat = material("floor", new Color3(0.055, 0.023, 0.018), scene);
-  const wallMat = material("wall", new Color3(0.075, 0.032, 0.027), scene);
-  const woodMat = material("wood", new Color3(0.17, 0.065, 0.035), scene);
-  const brassMat = material("brass", new Color3(0.52, 0.2, 0.06), scene, new Color3(0.17, 0.045, 0.012));
-  const redGlow = material("red-glow", new Color3(0.55, 0.06, 0.015), scene, new Color3(1, 0.08, 0.02));
-  const darkGlow = material("dark-glow", new Color3(0.08, 0.01, 0.04), scene, new Color3(0.5, 0.025, 0.08));
-  floorMat.emissiveColor = new Color3(0.022, 0.006, 0.004);
-  wallMat.emissiveColor = new Color3(0.035, 0.008, 0.006);
-  woodMat.emissiveColor = new Color3(0.06, 0.012, 0.004);
-
-  const floor = MeshBuilder.CreateGround("floor", { width: 20, height: 20 }, scene);
+  let seed = 42;
+  const random = (): number => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+  const woodMat = textureMaterial("oiled-walnut", 1024, 512, (ctx) => {
+    ctx.fillStyle = "#764726"; ctx.fillRect(0, 0, 1024, 512);
+    for (let i = 0; i < 950; i++) {
+      const y = random() * 512;
+      ctx.strokeStyle = random() > 0.4 ? `rgba(35,17,8,${0.03 + random() * 0.16})` : `rgba(220,158,88,${random() * 0.13})`;
+      ctx.lineWidth = 0.4 + random() * 2.3;
+      ctx.beginPath(); ctx.moveTo(0, y);
+      ctx.bezierCurveTo(270, y + random() * 12, 600, y - random() * 16, 1024, y + random() * 5); ctx.stroke();
+    }
+    for (let y = 128; y < 512; y += 128) { ctx.fillStyle = "rgba(24,12,5,.45)"; ctx.fillRect(0, y, 1024, 2); }
+  });
+  woodMat.specularColor = new Color3(0.38, 0.27, 0.17);
+  woodMat.specularPower = 75;
+  const brickMat = textureMaterial("aged-red-brick", 1024, 512, (ctx) => {
+    ctx.fillStyle = "#595048"; ctx.fillRect(0, 0, 1024, 512);
+    for (let row = 0; row < 8; row++) for (let col = -1; col < 9; col++) {
+      const tone = Math.floor(random() * 22);
+      ctx.fillStyle = `rgb(${105 + tone},${65 + tone},${48 + tone})`;
+      ctx.fillRect(col * 128 + (row % 2) * 64 + 3, row * 64 + 3, 122, 58);
+      ctx.fillStyle = "rgba(236,177,126,.1)"; ctx.fillRect(col * 128 + (row % 2) * 64 + 4, row * 64 + 4, 120, 2);
+    }
+  });
+  brickMat.specularColor = Color3.Black();
+  const floorMat = textureMaterial("small-floor-tiles", 512, 512, (ctx) => {
+    ctx.fillStyle = "#222c27"; ctx.fillRect(0, 0, 512, 512);
+    for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) {
+      ctx.fillStyle = (x + y) % 2 ? "#343c35" : "#727365";
+      ctx.fillRect(x * 64 + 2, y * 64 + 2, 60, 60);
+    }
+  });
+  const floorTexture = floorMat.diffuseTexture as DynamicTexture;
+  floorTexture.uScale = 4; floorTexture.vScale = 4;
+  const greenMat = material("bottle-green-wainscot", new Color3(0.075, 0.16, 0.13), scene);
+  const darkWood = material("ebony-shelf-frames", new Color3(0.095, 0.065, 0.044), scene);
+  const brassMat = material("aged-brass", new Color3(0.64, 0.43, 0.19), scene);
+  brassMat.specularColor = new Color3(0.85, 0.7, 0.4); brassMat.specularPower = 85;
+  const chromeMat = material("polished-stainless", new Color3(0.49, 0.53, 0.52), scene);
+  chromeMat.specularColor = new Color3(0.95, 0.95, 0.87); chromeMat.specularPower = 120;
+  const blackMat = material("rubber-and-iron", new Color3(0.025, 0.035, 0.03), scene);
+  const leatherMat = material("oxblood-leather", new Color3(0.23, 0.065, 0.042), scene);
+  const warmBulb = material("warm-filament", new Color3(1, 0.8, 0.4), scene, new Color3(1, 0.67, 0.25));
+  const creamMat = material("ivory-ceramic", new Color3(0.9, 0.85, 0.71), scene);
+  const floor = MeshBuilder.CreateGround("tiled-floor", { width: 18, height: 18 }, scene);
   floor.material = floorMat;
-  box("back-wall", { width: 13, height: 6.5, depth: 0.28 }, new Vector3(0, 3.1, -2.7), wallMat);
-  box("bar-front", { width: 9.5, height: 1.15, depth: 0.72 }, new Vector3(0, 0.78, 0.85), woodMat);
-  box("bar-top", { width: 10, height: 0.2, depth: 1.25 }, new Vector3(0, 1.38, 0.55), brassMat);
-  box("shelf-1", { width: 8.8, height: 0.12, depth: 0.46 }, new Vector3(0, 2.36, -2.23), woodMat);
-  box("shelf-2", { width: 8.8, height: 0.12, depth: 0.46 }, new Vector3(0, 3.25, -2.23), woodMat);
-  box("shelf-light", { width: 7.6, height: 0.035, depth: 0.06 }, new Vector3(0, 3.38, -1.98), redGlow);
-
-  const sign = MeshBuilder.CreateTorus("neon-sign", { diameter: 2.7, thickness: 0.075, tessellation: 64 }, scene);
-  sign.position = new Vector3(-2.8, 4.55, -2.48);
-  sign.rotation.x = Math.PI / 2;
-  sign.material = redGlow;
-  const signCore = MeshBuilder.CreateTorus("neon-sign-core", { diameter: 1.9, thickness: 0.035, tessellation: 64 }, scene);
-  signCore.position = sign.position.clone();
-  signCore.rotation.x = Math.PI / 2;
-  signCore.material = darkGlow;
-
-  for (let i = 0; i < 10; i += 1) {
-    const x = -3.7 + (i % 5) * 1.8;
-    const z = -2.0 - Math.floor(i / 5) * 0.01;
-    makeBottle(i, x, z, [new Color3(0.18, 0.5, 0.36), new Color3(0.54, 0.12, 0.08), new Color3(0.08, 0.24, 0.4), new Color3(0.6, 0.28, 0.06)][i % 4]);
+  box("back-wall", { width: 12, height: 6, depth: 0.22 }, new Vector3(0, 3, -3.15), brickMat);
+  box("left-wall", { width: 0.2, height: 6, depth: 10 }, new Vector3(-6, 3, 1.8), greenMat);
+  box("right-wall", { width: 0.2, height: 6, depth: 10 }, new Vector3(6, 3, 1.8), greenMat);
+  box("back-wainscot", { width: 12, height: 1.3, depth: 0.15 }, new Vector3(0, 0.68, -2.99), greenMat);
+  box("back-chair-rail", { width: 12, height: 0.065, depth: 0.22 }, new Vector3(0, 1.36, -2.97), woodMat);
+  box("backbar-cabinet", { width: 10, height: 1.4, depth: 0.64 }, new Vector3(0, 0.7, -2.55), greenMat);
+  box("backbar-worktop", { width: 10.2, height: 0.12, depth: 0.82 }, new Vector3(0, 1.46, -2.47), woodMat);
+  for (let x = -4.2; x < 5; x += 1.4) {
+    box(`cabinet-door-${x}`, { width: 1.22, height: 1.11, depth: 0.03 }, new Vector3(x, 0.71, -2.21), darkWood);
+    box(`cabinet-inset-${x}`, { width: 1.1, height: 0.97, depth: 0.04 }, new Vector3(x, 0.71, -2.18), greenMat);
+    cylinder(`cabinet-pull-${x}`, 0.13, 0.035, new Vector3(x + 0.44, 0.78, -2.13), brassMat);
   }
 
-  const tapBody = box("tap-body", { width: 0.42, height: 1.35, depth: 0.42 }, new Vector3(1.65, 2.3, 0.12), brassMat);
-  tapBody.rotation.z = -0.12;
-  const tapHead = MeshBuilder.CreateCylinder("tap-head", { height: 0.78, diameter: 0.31, tessellation: 18 }, scene);
-  tapHead.rotation.z = Math.PI / 2;
-  tapHead.position = new Vector3(1.15, 3.03, 0.12);
-  tapHead.material = brassMat;
-  const nozzle = MeshBuilder.CreateCylinder("nozzle", { height: 0.48, diameter: 0.15, tessellation: 16 }, scene);
-  nozzle.rotation.z = Math.PI / 2;
-  nozzle.position = new Vector3(0.7, 3.03, 0.12);
-  nozzle.material = brassMat;
-  tapHandle = MeshBuilder.CreateCylinder("tap-handle", { height: 0.5, diameter: 0.12, tessellation: 16 }, scene);
-  tapHandle.position = new Vector3(1.64, 3.58, 0.12);
-  tapHandle.material = redGlow;
+  // Deep green panelled bar, a thick walnut slab, and a continuous brass foot rail.
+  box("bar-case", { width: 10.4, height: 1.34, depth: 1.24 }, new Vector3(0, 0.77, 0.15), greenMat);
+  box("counter-walnut-slab", { width: 10.9, height: 0.18, depth: 2.0 }, new Vector3(0, 1.45, 0.25), woodMat);
+  box("counter-front-lip", { width: 10.92, height: 0.095, depth: 0.075 }, new Vector3(0, 1.41, 1.28), darkWood);
+  box("bar-plinth", { width: 10.45, height: 0.16, depth: 1.31 }, new Vector3(0, 0.14, 0.18), darkWood);
+  for (let x = -4.5; x <= 4.5; x += 1.5) {
+    box(`bar-panel-frame-${x}`, { width: 1.34, height: 0.98, depth: 0.04 }, new Vector3(x, 0.76, 0.79), woodMat);
+    box(`bar-panel-inset-${x}`, { width: 1.2, height: 0.83, depth: 0.05 }, new Vector3(x, 0.76, 0.81), greenMat);
+    pipe(`footrail-bracket-${x}`, [new Vector3(x, 0.38, 0.83), new Vector3(x, 0.24, 1.25)], 0.035, brassMat);
+  }
+  pipe("brass-footrail", [new Vector3(-5.1, 0.24, 1.25), new Vector3(5.1, 0.24, 1.25)], 0.045, brassMat);
 
-  const glassMat = material("glass", new Color3(0.52, 0.18, 0.08), scene, new Color3(0.18, 0.045, 0.02), 0.22);
+  const labelMats = ["HOUSE", "BOTANIC", "RESERVE"].map((word, index) => textureMaterial(`bottle-paper-${index}`, 256, 128, (ctx) => {
+    ctx.fillStyle = ["#e9d9ac", "#bfc7a0", "#cf9970"][index]; ctx.fillRect(0, 0, 256, 128);
+    ctx.strokeStyle = "#57442e"; ctx.lineWidth = 3; ctx.strokeRect(6, 6, 244, 116);
+    ctx.fillStyle = "#403d29"; ctx.textAlign = "center"; ctx.font = "bold 22px Georgia"; ctx.fillText(word, 128, 59);
+    ctx.font = "12px Georgia"; ctx.fillText("SMALL BATCH · NO. 42", 128, 88);
+  }));
+  const bottleColors = [new Color3(0.085, 0.2, 0.105), new Color3(0.24, 0.095, 0.028), new Color3(0.14, 0.2, 0.18), new Color3(0.3, 0.13, 0.04)];
+  for (let side = -1; side <= 1; side += 2) {
+    const center = side * 2.8;
+    box(`shelf-recess-${side}`, { width: 3.8, height: 2.65, depth: 0.15 }, new Vector3(center, 2.99, -2.98), darkWood);
+    for (let row = 0; row < 3; row++) {
+      const y = 1.69 + row * 0.89;
+      box(`shelf-${side}-${row}`, { width: 3.8, height: 0.09, depth: 0.58 }, new Vector3(center, y, -2.61), woodMat);
+      box(`shelf-warm-strip-${side}-${row}`, { width: 3.5, height: 0.015, depth: 0.018 }, new Vector3(center, y - 0.052, -2.36), warmBulb);
+      for (let i = 0; i < 9; i++) {
+        const index = (side + 1) * 30 + row * 9 + i;
+        makeBottle(index, center - 1.56 + i * 0.38, y + 0.047, -2.62, bottleColors[index % 4], labelMats[index % 3], brassMat);
+      }
+    }
+    for (const dx of [-1.93, 1.93]) box(`shelf-upright-${side}-${dx}`, { width: 0.1, height: 2.75, depth: 0.63 }, new Vector3(center + dx, 2.98, -2.64), woodMat);
+  }
+
+  const mainSign = textureMaterial("painted-taproom-sign", 1024, 320, (ctx) => {
+    ctx.fillStyle = "#172f28"; ctx.fillRect(0, 0, 1024, 320);
+    ctx.strokeStyle = "#bc965e"; ctx.lineWidth = 5; ctx.strokeRect(16, 16, 992, 288);
+    ctx.strokeRect(25, 25, 974, 270);
+    ctx.textAlign = "center"; ctx.fillStyle = "#e9d5ac";
+    ctx.font = "bold 108px Georgia"; ctx.fillText("THE LAST DROP", 512, 164);
+    ctx.font = "28px Georgia"; ctx.fillText("NEIGHBORHOOD TAPROOM  •  EST. 2026", 512, 236);
+  });
+  box("sign-walnut-frame", { width: 7.2, height: 1.17, depth: 0.12 }, new Vector3(0, 4.75, -2.98), woodMat);
+  wallSign("taproom-lettering", 7.03, 1.02, new Vector3(0, 4.75, -2.9), mainSign);
+  const menuMat = textureMaterial("handwritten-draft-list", 512, 1024, (ctx) => {
+    ctx.fillStyle = "#162420"; ctx.fillRect(0, 0, 512, 1024);
+    ctx.textAlign = "center"; ctx.fillStyle = "#eee2c4"; ctx.font = "bold 56px Georgia";
+    ctx.fillText("ON DRAFT", 256, 112);
+    ctx.strokeStyle = "#bbaa7e"; ctx.beginPath(); ctx.moveTo(58, 142); ctx.lineTo(454, 142); ctx.stroke();
+    ctx.font = "italic 31px Georgia";
+    ["House Lager", "Sunset IPA", "Midnight Stout", "Crisp Pils", "Velvet Porter"].forEach((word, i) => {
+      ctx.fillText(word, 256, 225 + i * 128); ctx.font = "20px Georgia"; ctx.fillStyle = "#bbae8e";
+      ctx.fillText(["CRISP • GOLDEN", "CITRUS • HOPPY", "ROASTED • SMOOTH", "BRIGHT • CLEAN", "RICH • VELVETY"][i], 256, 260 + i * 128);
+      ctx.font = "italic 31px Georgia"; ctx.fillStyle = "#eee2c4";
+    });
+    ctx.font = "24px Georgia"; ctx.fillText("GOOD BEER. GOOD COMPANY.", 256, 942);
+  });
+  box("chalkboard-frame", { width: 1.65, height: 2.66, depth: 0.12 }, new Vector3(0, 2.94, -2.84), woodMat);
+  wallSign("chalkboard-menu", 1.49, 2.49, new Vector3(0, 2.94, -2.765), menuMat);
+
+  // Pendant shades, visible bulbs, and their cords make the lighting feel situated.
+  for (const x of [-3.65, 3.7]) {
+    cylinder(`pendant-cord-${x}`, 0.88, 0.024, new Vector3(x, 5.34, 0.2), blackMat);
+    const shade = MeshBuilder.CreateCylinder(`pendant-brass-shade-${x}`, { height: 0.33, diameterTop: 0.18, diameterBottom: 0.92, tessellation: 32 }, scene);
+    shade.position = new Vector3(x, 4.75, 0.2); shade.material = brassMat;
+    cylinder(`pendant-diffuser-${x}`, 0.018, 0.75, new Vector3(x, 4.575, 0.2), warmBulb);
+  }
+
+  // Two stools in the foreground provide a recognizable customer side of the bar.
+  for (const x of [-3.65, 3.75]) {
+    cylinder(`stool-seat-${x}`, 0.15, 0.86, new Vector3(x, 1.01, 2.05), leatherMat);
+    cylinder(`stool-seat-piping-${x}`, 0.025, 0.88, new Vector3(x, 0.95, 2.05), brassMat);
+    cylinder(`stool-pedestal-${x}`, 0.8, 0.075, new Vector3(x, 0.49, 2.05), blackMat);
+    cylinder(`stool-foot-${x}`, 0.08, 0.62, new Vector3(x, 0.05, 2.05), blackMat);
+    const ring = MeshBuilder.CreateTorus(`stool-footrest-${x}`, { diameter: 0.58, thickness: 0.04, tessellation: 24 }, scene);
+    ring.position = new Vector3(x, 0.37, 2.05); ring.material = brassMat;
+    pipe(`stool-back-frame-${x}`, [new Vector3(x - 0.35, 0.99, 2.29), new Vector3(x - 0.35, 1.6, 2.29), new Vector3(x + 0.35, 1.6, 2.29), new Vector3(x + 0.35, 0.99, 2.29)], 0.028, brassMat);
+    box(`stool-back-cushion-${x}`, { width: 0.7, height: 0.26, depth: 0.1 }, new Vector3(x, 1.45, 2.29), leatherMat);
+  }
+
+  // A four-faucet bridge tower. The third handle controls the player's pint.
+  for (const x of [-0.92, 2.54]) {
+    cylinder(`tap-mount-${x}`, 0.045, 0.4, new Vector3(x, 1.56, -0.02), brassMat);
+    cylinder(`tap-upright-${x}`, 1.98, 0.2, new Vector3(x, 2.57, -0.02), chromeMat);
+  }
+  pipe("tap-tower-crossbar", [new Vector3(-0.92, 3.54, -0.02), new Vector3(2.54, 3.54, -0.02)], 0.16, chromeMat);
+  const handleMats = [greenMat, woodMat, leatherMat, blackMat];
+  for (let i = 0; i < 4; i++) {
+    const x = GLASS_X + (i - 2) * 0.75;
+    pipe(`faucet-${i}`, [new Vector3(x, 3.54, -0.02), new Vector3(x, 3.54, 0.36), new Vector3(x, 3.5, 0.57), new Vector3(x, SPOUT_Y, GLASS_Z)], 0.059, chromeMat);
+    cylinder(`handle-stem-${i}`, 0.17, 0.045, new Vector3(x, 3.62, 0.22), brassMat);
+    const handle = cylinder(`tap-handle-${i}`, 0.36, 0.12, new Vector3(x, HANDLE_Y, 0.22), handleMats[i]);
+    const badge = textureMaterial(`tap-badge-${i}`, 128, 128, (ctx) => {
+      ctx.fillStyle = "#eee0bd"; ctx.fillRect(0, 0, 128, 128); ctx.fillStyle = "#254239";
+      ctx.textAlign = "center"; ctx.font = "bold 44px Georgia"; ctx.fillText(String(i + 1).padStart(2, "0"), 64, 72);
+      ctx.font = "14px Georgia"; ctx.fillText("DRAFT", 64, 97);
+    });
+    const badgeMesh = wallSign(`tap-number-${i}`, 0.11, 0.13, new Vector3(x, HANDLE_Y + 0.015, 0.283), badge);
+    if (i === 2) { tapHandle = handle; badgeMesh.setParent(handle); }
+  }
+  box("stainless-drip-tray", { width: 3.55, height: 0.035, depth: 0.87 }, new Vector3(0.76, 1.555, 0.46), chromeMat);
+  for (let i = 0; i < 35; i++) box(`drip-tray-slot-${i}`, { width: 0.024, height: 0.005, depth: 0.69 }, new Vector3(-0.88 + i * 0.096, 1.575, 0.46), blackMat);
+
+  const glassMat = material("clear-pint-glass", new Color3(0.8, 0.94, 0.94), scene, undefined, 0.1);
   glassMat.backFaceCulling = false;
-  const glass = MeshBuilder.CreateCylinder("glass", { height: 1.55, diameterTop: 1.05, diameterBottom: 0.82, tessellation: 32 }, scene);
-  glass.position = new Vector3(0, 1.2, 0.18);
+  glassMat.specularColor = Color3.White(); glassMat.specularPower = 130;
+  const glass = MeshBuilder.CreateLathe("open-pint-glass", { shape: [new Vector3(0, 0, 0), new Vector3(0.395, 0, 0), new Vector3(0.415, 0.08, 0), new Vector3(0.525, 1.55, 0), new Vector3(0.5, 1.55, 0), new Vector3(0.388, 0.085, 0), new Vector3(0, 0.085, 0)], tessellation: 48 }, scene);
+  glass.position = new Vector3(GLASS_X, GLASS_BASE_Y, GLASS_Z);
   glass.material = glassMat;
-  rim = MeshBuilder.CreateTorus("glass-rim", { diameter: 1.05, thickness: 0.045, tessellation: 32 }, scene);
-  rim.position = new Vector3(0, 1.975, 0.18);
-  rim.material = brassMat;
-  const glassBase = MeshBuilder.CreateTorus("glass-base", { diameter: 0.72, thickness: 0.045, tessellation: 32 }, scene);
-  glassBase.position = new Vector3(0, 0.43, 0.18);
-  glassBase.material = brassMat;
-
-  const beerMaterial = material("beer", orders[0].color, scene, orders[0].color.scale(0.32), 0.94);
-  beer = MeshBuilder.CreateCylinder("beer", { height: 1.45, diameterTop: 0.96, diameterBottom: 0.73, tessellation: 32 }, scene);
-  beer.position = new Vector3(0, 0.44, 0.18);
+  const glassEdge = material("glass-edge-reflections", new Color3(0.73, 0.84, 0.82), scene, new Color3(0.12, 0.15, 0.14), 0.46);
+  rim = MeshBuilder.CreateTorus("glass-rim", { diameter: 1.025, thickness: 0.025, tessellation: 48 }, scene);
+  rim.position = new Vector3(GLASS_X, GLASS_BASE_Y + 1.55, GLASS_Z); rim.material = glassEdge;
+  const glassBase = MeshBuilder.CreateTorus("heavy-glass-base", { diameter: 0.78, thickness: 0.055, tessellation: 40 }, scene);
+  glassBase.position = new Vector3(GLASS_X, GLASS_BASE_Y + 0.04, GLASS_Z); glassBase.material = glassEdge;
+  for (const side of [-1, 1]) pipe(`pint-side-highlight-${side}`, [new Vector3(GLASS_X + side * 0.385, GLASS_BASE_Y + 0.08, GLASS_Z + 0.1), new Vector3(GLASS_X + side * 0.493, GLASS_BASE_Y + 1.5, GLASS_Z + 0.12)], 0.009, glassEdge);
+  const beerMaterial = material("beer", orders[0].color, scene, orders[0].color.scale(0.09));
+  beerMaterial.specularPower = 95;
+  beer = MeshBuilder.CreateCylinder("beer", { height: 1.45, diameterTop: 0.96, diameterBottom: 0.73, tessellation: 48 }, scene);
+  beer.position = new Vector3(GLASS_X, GLASS_BASE_Y + 0.075, GLASS_Z);
   beer.scaling.y = 0.001;
   beer.material = beerMaterial;
-  const foamMaterial = material("foam", new Color3(1, 0.72, 0.38), scene, new Color3(0.48, 0.19, 0.035), 0.92);
-  foam = MeshBuilder.CreateCylinder("foam", { height: 0.12, diameter: 0.95, tessellation: 32 }, scene);
-  foam.position = new Vector3(0, 0.46, 0.18);
+  const foamMaterial = material("creamy-white-foam", new Color3(0.97, 0.93, 0.8), scene, new Color3(0.045, 0.04, 0.025));
+  foamMaterial.specularColor = new Color3(0.1, 0.09, 0.07);
+  foam = MeshBuilder.CreateCylinder("foam", { height: 0.12, diameter: 0.95, tessellation: 48 }, scene);
+  foam.position = new Vector3(GLASS_X, GLASS_BASE_Y + 0.09, GLASS_Z);
   foam.scaling.y = 0.2;
   foam.material = foamMaterial;
-
-  stream = MeshBuilder.CreateCylinder("pour-stream", { height: 1.55, diameter: 0.055, tessellation: 12 }, scene);
-  stream.position = new Vector3(0.32, 2.21, 0.18);
-  stream.material = foamMaterial;
+  stream = MeshBuilder.CreateCylinder("pour-stream", { height: 1, diameter: 0.064, tessellation: 12 }, scene);
+  stream.position = new Vector3(GLASS_X, SPOUT_Y - 0.5, GLASS_Z);
+  stream.material = beerMaterial;
   stream.isVisible = false;
-  streamTip = MeshBuilder.CreateSphere("stream-tip", { diameter: 0.18, segments: 10 }, scene);
-  streamTip.position = new Vector3(0.32, 1.43, 0.18);
+  streamTip = MeshBuilder.CreateSphere("stream-tip", { diameter: 0.13, segments: 12 }, scene);
+  streamTip.position = new Vector3(GLASS_X, GLASS_BASE_Y + 0.08, GLASS_Z);
+  streamTip.scaling.y = 0.25;
   streamTip.material = foamMaterial;
   streamTip.isVisible = false;
-
-  const bubbleMat = material("bubble", new Color3(1, 0.82, 0.5), scene, new Color3(0.3, 0.1, 0.02), 0.72);
-  for (let i = 0; i < 13; i += 1) {
-    const bubble = MeshBuilder.CreateSphere(`bubble-${i}`, { diameter: 0.025 + (i % 3) * 0.012, segments: 7 }, scene);
-    bubble.position = new Vector3(-0.32 + (i % 5) * 0.16, 0.48 + (i % 4) * 0.22, 0.1 + (i % 3) * 0.04);
-    bubble.material = bubbleMat;
+  const bubbleMat = material("carbonation", new Color3(1, 0.91, 0.65), scene, new Color3(0.12, 0.09, 0.035), 0.55);
+  for (let i = 0; i < 18; i++) {
+    const bubble = MeshBuilder.CreateSphere(`bubble-${i}`, { diameter: 0.016 + (i % 3) * 0.006, segments: 6 }, scene);
+    bubble.position = new Vector3(GLASS_X - 0.3 + (i % 6) * 0.12, GLASS_BASE_Y + 0.15, GLASS_Z + 0.31);
+    bubble.material = bubbleMat; bubble.isVisible = false; bubbles.push(bubble);
   }
 
-  glow = new GlowLayer("taproom-glow", scene, { blurKernelSize: 32 });
-  glow.intensity = 0.65;
+  // Water glasses, coasters, a bar towel and a small plant soften the work surface.
+  for (let i = 0; i < 5; i++) {
+    const tumbler = MeshBuilder.CreateLathe(`backbar-water-glass-${i}`, { shape: [new Vector3(0, 0, 0), new Vector3(0.11, 0, 0), new Vector3(0.135, 0.31, 0), new Vector3(0.12, 0.31, 0), new Vector3(0.095, 0.03, 0), new Vector3(0, 0.03, 0)], tessellation: 16 }, scene);
+    tumbler.position = new Vector3(1.5 + i * 0.3, 1.525, -2.32); tumbler.material = glassEdge;
+  }
+  cylinder("ceramic-coaster", 0.025, 0.66, new Vector3(-2.3, 1.556, 0.77), creamMat);
+  box("folded-bar-towel", { width: 0.57, height: 0.035, depth: 0.38 }, new Vector3(3.1, 1.57, 0.59), creamMat).rotation.y = -0.18;
+  for (let i = 0; i < 3; i++) box(`towel-stripe-${i}`, { width: 0.035, height: 0.002, depth: 0.36 }, new Vector3(2.99 + i * 0.06, 1.59, 0.59), greenMat).rotation.y = -0.18;
+  cylinder("terracotta-plant-pot", 0.28, 0.34, new Vector3(4.22, 1.67, -2.39), leatherMat);
+  for (let i = 0; i < 7; i++) {
+    const leaf = MeshBuilder.CreateSphere(`plant-leaf-${i}`, { diameter: 0.25, segments: 8 }, scene);
+    leaf.scaling = new Vector3(0.35, 1.8, 0.7); leaf.rotation.z = (i - 3) * 0.25;
+    leaf.position = new Vector3(4.22 + Math.sin(i * 2) * 0.12, 1.99 + Math.cos(i) * 0.1, -2.39 + Math.cos(i * 2) * 0.1); leaf.material = greenMat;
+  }
+  for (const mesh of scene.meshes) {
+    mesh.receiveShadows = true;
+    if (mesh.material?.alpha === 1 && mesh !== beer && mesh !== foam && mesh !== stream && mesh !== streamTip && mesh.material !== warmBulb) shadow.addShadowCaster(mesh);
+  }
+  glow = new GlowLayer("practical-light-bloom", scene, { blurKernelSize: 24 });
+  glow.intensity = 0.17;
+  for (const mesh of scene.meshes) if (mesh instanceof Mesh && mesh.material !== warmBulb) glow.addExcludedMesh(mesh);
   loadingStatus.textContent = "Taproom ready";
 }
 
@@ -291,7 +483,7 @@ function setOrderColor(): void {
   const order = currentOrder();
   const beerMaterial = beer.material as StandardMaterial;
   beerMaterial.diffuseColor = order.color;
-  beerMaterial.emissiveColor = order.color.scale(0.32);
+  beerMaterial.emissiveColor = order.color.scale(0.09);
 }
 
 function resetOrder(): void {
@@ -441,19 +633,24 @@ function updateScene(deltaSeconds: number, timeSeconds: number): void {
     }
     const beerHeight = 1.45 * clamp(fill, 0.001, 1);
     beer.scaling.y = clamp(fill, 0.001, 1.08);
-    beer.position.y = 0.44 + beerHeight / 2;
+    beer.position.y = GLASS_BASE_Y + 0.075 + beerHeight / 2;
     const foamHeight = 0.12 * clamp(foamAmount / 0.19, 0.18, 1.35);
     foam.scaling.y = foamHeight / 0.12;
-    foam.position.y = 0.44 + beerHeight + foamHeight / 2;
-    stream.scaling.y = 0.84 + flow * 0.25;
+    foam.position.y = GLASS_BASE_Y + 0.075 + beerHeight + foamHeight / 2;
+    const liquidSurface = GLASS_BASE_Y + 0.075 + beerHeight + foamHeight;
+    stream.scaling.y = Math.max(0.08, SPOUT_Y - liquidSurface);
     stream.scaling.x = 0.65 + flow * 0.7;
     stream.scaling.z = stream.scaling.x;
-    stream.position.y = 2.23 - flow * 0.1;
-    streamTip.position.y = 1.43 + Math.sin(timeSeconds * 16) * 0.025;
+    stream.position.y = (SPOUT_Y + liquidSurface) / 2;
+    streamTip.position.y = liquidSurface + Math.sin(timeSeconds * 16) * 0.009;
     updateHud();
   }
   rim.rotation.y = Math.sin(timeSeconds * 0.25) * 0.012;
-  if (tapHandle) tapHandle.position.y = 3.58 + Math.sin(timeSeconds * 1.2) * 0.012;
+  for (let i = 0; i < bubbles.length; i++) {
+    const bubble = bubbles[i];
+    bubble.isVisible = fill > 0.08;
+    bubble.position.y = GLASS_BASE_Y + 0.1 + ((timeSeconds * 0.12 + i * 0.063) % Math.max(0.01, 1.4 * Math.min(fill, 1)));
+  }
 }
 
 async function start(): Promise<void> {
