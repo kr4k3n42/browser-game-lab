@@ -1,6 +1,7 @@
 import { Engine, Scene, FreeCamera, Vector3, Quaternion, Matrix, Color3, Color4, MeshBuilder, StandardMaterial, HemisphericLight, TransformNode } from '@babylonjs/core';
 import './style.css';
 import { createAstronautBody } from './body';
+import { createMobileControls } from './mobile';
 import { boxContact, ringContact, boxesContact, collisionImpulse } from './collision';
 
 const canvas=document.querySelector<HTMLCanvasElement>('#flight')!;
@@ -320,15 +321,23 @@ button.onclick=()=>{active=true;paused=false;document.body.classList.add('runnin
 window.addEventListener('keydown',e=>{if(['Space','Enter','NumpadEnter','ControlLeft','ControlRight','Tab','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code))e.preventDefault();if(!active)return;if(e.code==='Escape'&&!e.repeat){paused=!paused;clear();button.textContent=paused?'RESUME (ESC)':'RESET PRACTICE';}if(paused)return;if(e.code==='KeyR'&&!e.repeat)reset();if(e.code==='Tab')diagnostics=true;if(e.code==='Space'&&!e.repeat)grab();if((e.code==='Enter'||e.code==='NumpadEnter')&&!e.repeat){if(latched)releaseGrip();else{if(held<0)grab();if(held>=0){latched=true;message.textContent='Anchor latched. Enter detaches; Space can be released.';}}}keys.add(e.code);});
 window.addEventListener('keyup',e=>{keys.delete(e.code);if(e.code==='Tab')diagnostics=false;if(e.code==='Space'&&held>=0&&!latched)releaseGrip();});window.addEventListener('blur',()=>{clear();paused=true;});document.addEventListener('visibilitychange',()=>{if(document.hidden){clear();paused=true;}});
 canvas.addEventListener('contextmenu',e=>e.preventDefault());canvas.addEventListener('pointerdown',e=>{if((e.button===0||e.button===2)&&active&&!paused){mouseButtons.add(e.button);looking=true;canvas.setPointerCapture(e.pointerId);}});canvas.addEventListener('pointermove',e=>{if(!looking)return;headY=Math.max(-1.05,Math.min(1.05,headY+e.movementX*.004));headX=Math.max(-.61,Math.min(.61,headX+e.movementY*.004));});window.addEventListener('pointerup',e=>{mouseButtons.delete(e.button);looking=mouseButtons.size>0;});canvas.addEventListener('pointercancel',()=>{mouseButtons.clear();looking=false;});
+const mobileControls=createMobileControls({
+  start:()=>{if(!active)button.click();else{paused=false;button.textContent='RESET PRACTICE';}},
+  anchor:()=>{if(!active||paused)return;if(latched)releaseGrip();else{if(held<0)grab();if(held>=0)latched=true;}},
+  release:()=>{if(held>=0&&!latched)releaseGrip();}
+});
+canvas.addEventListener('pointerdown',event=>{if(mobileControls.state.mobile&&event.pointerType==='touch')event.stopImmediatePropagation();},true);
 engine.runRenderLoop(()=>{
 const dt=Math.min(engine.getDeltaTime()/1000,.04);
 let thrust=Vector3.Zero(),turn=Vector3.Zero();
-const braking=active&&!paused&&keys.has('KeyS');
+mobileControls.update();
+const mobile=mobileControls.state;
+const braking=active&&!paused&&(keys.has('KeyS')||mobile.brake);
 if(active&&!paused){
-  if(keys.has('Space')&&held<0&&cargo.some(c=>Vector3.Distance(position,c.root.position)<2.5&&velocity.subtract(c.velocity).length()<1))grab();
+  if((keys.has('Space')||mobile.grab)&&held<0&&cargo.some(c=>Vector3.Distance(position,c.root.position)<2.5&&velocity.subtract(c.velocity).length()<1))grab();
   if(!looking){headX*=Math.exp(-dt*7);headY*=Math.exp(-dt*7);}
   if(!diagnostics&&!braking){
-    thrust=new Vector3(axis('KeyD','KeyA'),Number(keys.has('KeyZ')||keys.has('ShiftLeft')||keys.has('ShiftRight'))-Number(keys.has('KeyC')),axis('KeyW','KeyX'));
+    thrust=new Vector3(axis('KeyD','KeyA')+mobile.x,Number(keys.has('KeyZ')||keys.has('ShiftLeft')||keys.has('ShiftRight'))-Number(keys.has('KeyC'))+mobile.up-mobile.down,axis('KeyW','KeyX')+mobile.z);
     if(thrust.length()>1)thrust.normalize();
     turn=new Vector3(axis('ArrowDown','ArrowUp'),axis('ArrowRight','ArrowLeft'),axis('KeyQ','KeyE'));
   }
