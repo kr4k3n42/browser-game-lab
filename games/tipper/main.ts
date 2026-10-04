@@ -686,7 +686,7 @@ function updatePintReadouts(): void {
     foamElement.textContent = percent(ticket.foam / 0.3);
     fillBar.style.width = `${clamp(ticket.fill, 0, 1) * 100}%`;
     foamBar.style.width = `${clamp(ticket.foam / 0.3, 0, 1) * 100}%`;
-    projectReadout(element, x - 0.62, GLASS_BASE_Y + 0.7);
+    projectReadout(element, x + 0.62, GLASS_BASE_Y + 0.7);
   };
   updateReadout(primaryPintReadout, primaryReadoutName, primaryReadoutFill, primaryReadoutFoam, primaryReadoutFillBar, primaryReadoutFoamBar, tickets[0], GLASS_X);
   updateReadout(secondaryPintReadout, secondaryReadoutName, secondaryReadoutFill, secondaryReadoutFoam, secondaryReadoutFillBar, secondaryReadoutFoamBar, tickets[1], SECOND_GLASS_X);
