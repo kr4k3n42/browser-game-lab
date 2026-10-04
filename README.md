@@ -25,6 +25,18 @@ Open the local URL shown by Vite, then choose **First Light** from the hub.
 - `docs/` — preferences, collaboration rules, and decisions
 - `.github/workflows/` — continuous deployment configuration
 
+## Studio system
+
+`docs/creative-preferences.md` is the canonical source of truth for preferences
+that should travel between games. It uses three layers:
+
+- **The Lock** — studio-wide commitments.
+- **The Canvas** — each game's identity and creative direction.
+- **The Remix** — intentional experiments that may or may not become shared practice.
+
+This lets a game become deeply specific without losing the benefits of a shared
+AI-readable workflow.
+
 ## Collaboration model
 
 Describe ideas in plain language. The goal is to turn prompts into playable increments, keep game-specific work local to its game, and document decisions that should influence future projects.
