@@ -92,6 +92,18 @@ kbd.pressed{background:#91e9df;color:#06131a;box-shadow:0 0 16px #91e9df55}
 .axial-gauge .roll-gauge{top:84px;left:50%;transform:translateX(-50%);width:54px}
 .axial-gauge .roll-gauge .axis-track{width:54px;flex:none}
 .rotation-instrument{margin-left:0}
+#mobile-controls{position:fixed;left:7%;right:7%;bottom:max(18px,env(safe-area-inset-bottom));color:#86eddb;text-align:center;z-index:6}
+.mobile-status{font:11px/1.4 system-ui;margin:0 0 10px}
+.mobile-tools,.mobile-holds{display:flex;justify-content:center;gap:10px;margin-top:8px}
+#mobile-controls button{width:auto;min-height:44px;border:1px solid #91e9df88;border-radius:9px;background:#06131a55;color:#91e9df;padding:10px 14px;font-size:11px;touch-action:none;user-select:none}
+#mobile-controls button.pressed{background:#91e9df;color:#06131a}
+.mobile-flight .keyboard-footer{display:none}
+.mobile-flight aside{bottom:165px}
+.mobile-flight #start{width:150px;padding:7px;font-size:10px}
+.mobile-flight #drift-instrument{top:52px;transform:translateX(-50%) scale(.75);transform-origin:top center}
+.mobile-flight #motion-readout{top:150px}
+.mobile-flight .lab-back{left:10px;bottom:5px;font-size:10px}
+@media(max-height:500px){.mobile-flight #helmet{border-width:16px}.mobile-flight #mobile-controls{left:5%;right:5%;bottom:12px}.mobile-flight aside{left:auto;right:20px;bottom:auto;top:15px;transform:none;width:auto}.mobile-flight #drift-instrument{top:40px;transform:translateX(-50%) scale(.65)}.mobile-flight .mobile-tools{position:fixed;left:25px;top:20px;flex-direction:column;gap:5px}.mobile-flight .mobile-status{max-width:400px;margin:0 auto 5px}}
 #flight-status{display:none}
 .drift-dial.gauge-moving,.axial-track.gauge-moving{border-color:#c6aa55}
 .roll-gauge .axis-track{border:1px solid #86cfd266;background:transparent}
