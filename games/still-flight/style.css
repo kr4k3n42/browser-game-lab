@@ -37,3 +37,5 @@ kbd.pressed{background:#91e9df;color:#06131a;box-shadow:0 0 16px #91e9df55}
 .center-keys{align-self:end}.practice-actions{justify-content:center}.aux-keys{display:none}
 @media(max-width:700px){.lab-back{left:16px;top:auto;bottom:16px}}
 .mouse-left.pressed{background:#91e9df;box-shadow:0 0 12px #91e9df66}
+/* Opaque outer mask prevents the world showing beyond the curved faceplate. */
+#helmet{box-shadow:0 0 0 100vmax #000,inset 0 0 100px 35px #0009}
