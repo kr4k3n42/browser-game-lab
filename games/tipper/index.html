@@ -72,8 +72,14 @@
             <input id="flow-range" type="range" min="18" max="92" value="52" aria-label="Pour flow" />
             <div class="range-labels"><span>Silk</span><span>Rush</span></div>
           </div>
-          <div class="action-controls">
+          <div id="single-action-controls" class="action-controls">
             <button id="pour-button" class="pour-button" type="button"><span class="pour-icon">↓</span><span>Hold to pour</span></button>
+          </div>
+          <div id="dual-action-controls" class="dual-action-controls" hidden>
+            <button id="pour-primary-button" class="pour-button" type="button"><span class="pour-icon">↓</span><span id="primary-pour-label">Crisp Pils</span></button>
+            <button id="pour-secondary-button" class="pour-button secondary-pour-button" type="button"><span class="pour-icon">↓</span><span id="secondary-pour-label">Velvet Porter</span></button>
+          </div>
+          <div class="serve-control">
             <button id="serve-button" class="serve-button" type="button" disabled>Serve this pour</button>
           </div>
           <p id="live-status" class="live-status" aria-live="polite">Dial in your flow, then hold the pour.</p>

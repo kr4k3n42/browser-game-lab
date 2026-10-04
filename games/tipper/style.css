@@ -79,6 +79,11 @@ input[type="range"]::-webkit-slider-thumb { width: 18px; height: 18px; appearanc
 input[type="range"]::-moz-range-thumb { width: 13px; height: 13px; border: 3px solid #fff4e5; border-radius: 50%; background: #e87959; box-shadow: 0 0 0 5px rgba(232,121,89,.16); }
 .range-labels { display: flex; justify-content: space-between; margin-top: 8px; color: rgba(255,244,229,.35); font-size: .6rem; }
 .action-controls { display: flex; gap: 10px; }
+.dual-action-controls { display: flex; gap: 10px; }
+.dual-action-controls .pour-button { min-width: 132px; }
+.secondary-pour-button { border-color: rgba(127,195,161,.45); }
+.secondary-pour-button:hover, .secondary-pour-button.is-pouring { border-color: #7fc3a1; background: rgba(27,77,63,.88); }
+.serve-control { display: flex; }
 .pour-button { display: inline-flex; align-items: center; gap: 10px; min-height: 52px; padding: 0 20px; border: 1px solid rgba(255,215,169,.3); border-radius: 999px; color: #fff4e5; background: rgba(39,22,17,.86); box-shadow: 0 12px 30px rgba(0,0,0,.2); font-size: .74rem; font-weight: 800; transition: transform 120ms ease, background 120ms ease, border-color 120ms ease; }
 .pour-button:hover, .pour-button.is-pouring { border-color: #f2c48e; background: rgba(114,44,27,.9); }
 .pour-button.is-pouring { transform: scale(.97); }
@@ -116,6 +121,9 @@ input[type="range"]::-moz-range-thumb { width: 13px; height: 13px; border: 3px s
   .controls { bottom: 28px; flex-direction: column; align-items: stretch; gap: 13px; width: calc(100vw - 34px); padding: 12px 15px; }
   .flow-control { max-width: none; }
   .action-controls { width: 100%; }
+  .dual-action-controls { width: 100%; flex-direction: column; }
+  .dual-action-controls .pour-button { width: 100%; }
+  .serve-control { width: 100%; }
   .pour-button, .serve-button { flex: 1; justify-content: center; }
   .live-status { right: auto; left: 0; bottom: -20px; }
   .loading-status { right: 17px; bottom: 7px; }
