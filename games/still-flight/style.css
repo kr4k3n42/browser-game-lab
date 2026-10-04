@@ -53,4 +53,7 @@ kbd.pressed{background:#91e9df;color:#06131a;box-shadow:0 0 16px #91e9df55}
 #helmet.hard-impact::after{box-shadow:inset 0 0 110px 40px #c41000cc;opacity:var(--impact-opacity,1)}
 @keyframes collision-caution{0%,100%{opacity:.2}50%{opacity:.75}}
 @media(prefers-reduced-motion:reduce){#helmet.collision-warning::after{animation:none;opacity:.45}}
+#suit-reassurance{position:fixed;left:9%;top:36%;width:min(280px,30vw);padding:18px 20px;border:1px solid #91e9df88;border-radius:14px;background:transparent;color:#a3e7df;font:14px/1.65 system-ui;text-shadow:0 0 8px #43dacb66;pointer-events:none}
+#suit-reassurance[hidden]{display:none}
+@media(max-width:700px){#suit-reassurance{left:8%;width:38vw;padding:12px;font-size:12px}}
 
