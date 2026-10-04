@@ -94,8 +94,12 @@ const primaryReadoutFillBar = document.querySelector<HTMLElement>("#primary-read
 const secondaryReadoutFillBar = document.querySelector<HTMLElement>("#secondary-readout-fill-bar")!;
 const primaryReadoutFoamBar = document.querySelector<HTMLElement>("#primary-readout-foam-bar")!;
 const secondaryReadoutFoamBar = document.querySelector<HTMLElement>("#secondary-readout-foam-bar")!;
+const primaryReadoutFillMarker = document.querySelector<HTMLElement>("#primary-readout-fill-marker")!;
+const secondaryReadoutFillMarker = document.querySelector<HTMLElement>("#secondary-readout-fill-marker")!;
+const primaryReadoutFoamMarker = document.querySelector<HTMLElement>("#primary-readout-foam-marker")!;
+const secondaryReadoutFoamMarker = document.querySelector<HTMLElement>("#secondary-readout-foam-marker")!;
 
-if (!canvas || !loadingStatus || !startPanel || !orderPanel || !rushPanel || !resultPanel || !endPanel || !controls || !singleActionControls || !dualActionControls || !startButton || !nextButton || !restartButton || !pourButton || !primaryPourButton || !secondaryPourButton || !primaryPourLabel || !secondaryPourLabel || !serveButton || !switchButton || !flowRange || !flowValue || !liveStatus || !scoreValue || !streakValue || !livesValue || !roundValue || !roundSuffix || !orderName || !tipValue || !fillTarget || !foamTarget || !fillMeter || !foamMeter || !fillMarker || !foamMarker || !orderHint || !rushName || !rushStatus || !resultKicker || !resultTitle || !resultCopy || !resultQuality || !resultPoints || !endTitle || !endCopy || !finalScore || !bestScore || !primaryPintReadout || !secondaryPintReadout || !primaryReadoutName || !secondaryReadoutName || !primaryReadoutFill || !secondaryReadoutFill || !primaryReadoutFoam || !secondaryReadoutFoam || !primaryReadoutFillBar || !secondaryReadoutFillBar || !primaryReadoutFoamBar || !secondaryReadoutFoamBar) {
+if (!canvas || !loadingStatus || !startPanel || !orderPanel || !rushPanel || !resultPanel || !endPanel || !controls || !singleActionControls || !dualActionControls || !startButton || !nextButton || !restartButton || !pourButton || !primaryPourButton || !secondaryPourButton || !primaryPourLabel || !secondaryPourLabel || !serveButton || !switchButton || !flowRange || !flowValue || !liveStatus || !scoreValue || !streakValue || !livesValue || !roundValue || !roundSuffix || !orderName || !tipValue || !fillTarget || !foamTarget || !fillMeter || !foamMeter || !fillMarker || !foamMarker || !orderHint || !rushName || !rushStatus || !resultKicker || !resultTitle || !resultCopy || !resultQuality || !resultPoints || !endTitle || !endCopy || !finalScore || !bestScore || !primaryPintReadout || !secondaryPintReadout || !primaryReadoutName || !secondaryReadoutName || !primaryReadoutFill || !secondaryReadoutFill || !primaryReadoutFoam || !secondaryReadoutFoam || !primaryReadoutFillBar || !secondaryReadoutFillBar || !primaryReadoutFoamBar || !secondaryReadoutFoamBar || !primaryReadoutFillMarker || !secondaryReadoutFillMarker || !primaryReadoutFoamMarker || !secondaryReadoutFoamMarker) {
   throw new Error("Perfect Pour could not find its interface.");
 }
 
@@ -677,19 +681,21 @@ function updatePintReadouts(): void {
     element.style.left = `${cssRect.left + projected.x * scaleX}px`;
     element.style.top = `${cssRect.top + projected.y * scaleY}px`;
   };
-  const updateReadout = (element: HTMLElement, nameElement: HTMLElement, fillElement: HTMLElement, foamElement: HTMLElement, fillBar: HTMLElement, foamBar: HTMLElement, ticket: BeerTicket | undefined, x: number): void => {
+  const updateReadout = (element: HTMLElement, nameElement: HTMLElement, fillElement: HTMLElement, foamElement: HTMLElement, fillBar: HTMLElement, foamBar: HTMLElement, fillMarkerElement: HTMLElement, foamMarkerElement: HTMLElement, ticket: BeerTicket | undefined, x: number): void => {
     const visible = active && Boolean(ticket) && !ticket?.served;
     element.hidden = !visible;
     if (!visible || !ticket) return;
     nameElement.textContent = ticket.order.name;
     fillElement.textContent = percent(ticket.fill);
     foamElement.textContent = percent(ticket.foam / 0.3);
-    fillBar.style.width = `${clamp(ticket.fill, 0, 1) * 100}%`;
-    foamBar.style.width = `${clamp(ticket.foam / 0.3, 0, 1) * 100}%`;
-    projectReadout(element, x + 0.62, GLASS_BASE_Y + 0.7);
+    fillBar.style.height = `${clamp(ticket.fill, 0, 1) * 100}%`;
+    foamBar.style.height = `${clamp(ticket.foam / 0.3, 0, 1) * 100}%`;
+    fillMarkerElement.style.bottom = `${ticket.order.targetFill * 100}%`;
+    foamMarkerElement.style.bottom = `${clamp(ticket.order.targetFoam / 0.3, 0, 1) * 100}%`;
+    projectReadout(element, x, GLASS_BASE_Y + 0.72);
   };
-  updateReadout(primaryPintReadout, primaryReadoutName, primaryReadoutFill, primaryReadoutFoam, primaryReadoutFillBar, primaryReadoutFoamBar, tickets[0], GLASS_X);
-  updateReadout(secondaryPintReadout, secondaryReadoutName, secondaryReadoutFill, secondaryReadoutFoam, secondaryReadoutFillBar, secondaryReadoutFoamBar, tickets[1], SECOND_GLASS_X);
+  updateReadout(primaryPintReadout, primaryReadoutName, primaryReadoutFill, primaryReadoutFoam, primaryReadoutFillBar, primaryReadoutFoamBar, primaryReadoutFillMarker, primaryReadoutFoamMarker, tickets[0], GLASS_X);
+  updateReadout(secondaryPintReadout, secondaryReadoutName, secondaryReadoutFill, secondaryReadoutFoam, secondaryReadoutFillBar, secondaryReadoutFoamBar, secondaryReadoutFillMarker, secondaryReadoutFoamMarker, tickets[1], SECOND_GLASS_X);
 }
 
 function setOrderColor(): void {
