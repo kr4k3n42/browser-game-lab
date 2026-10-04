@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#120d0c" />
+    <title>Perfect Pour — Browser Game Lab</title>
+  </head>
+  <body>
+    <canvas id="game-canvas" aria-label="Perfect Pour game scene"></canvas>
+
+    <div class="game-shell">
+      <header class="topbar">
+        <a class="back-link" href="../../">← Browser Game Lab</a>
+        <div class="game-mark"><span>TIPPER</span><b>Perfect Pour</b></div>
+        <div class="shift-stats" aria-label="Shift score">
+          <div><span>Score</span><strong id="score-value">0</strong></div>
+          <div><span>Streak</span><strong id="streak-value">0</strong></div>
+          <div><span>Lives</span><strong id="lives-value">●●●</strong></div>
+        </div>
+      </header>
+
+      <main class="game-ui">
+        <section id="start-panel" class="glass-panel intro-panel">
+          <p class="eyebrow">The late shift · prototype 002</p>
+          <h1>Pour the<br /><em>impossible</em> pint.</h1>
+          <p class="intro-copy">Every order is a tiny wager. Pour fast for points, slow for control, and stop before the glass tells on you.</p>
+          <div class="how-to">
+            <span><b>01</b> Set your flow</span>
+            <span><b>02</b> Hold to pour</span>
+            <span><b>03</b> Serve on target</span>
+          </div>
+          <button id="start-button" class="primary-button" type="button">Open the taproom <span>↗</span></button>
+          <p class="micro-copy">Mouse, touch, or Space + Arrow keys</p>
+        </section>
+
+        <section id="order-panel" class="order-panel" hidden>
+          <div class="order-heading">
+            <div>
+              <p class="eyebrow">Order <span id="round-value">01</span> / 06</p>
+              <h2 id="order-name">House Lager</h2>
+            </div>
+            <div class="order-tip"><span>Tip</span><strong id="tip-value">$2.00</strong></div>
+          </div>
+          <div class="targets">
+            <div class="target-row"><span>Fill line</span><strong id="fill-target">78%</strong><div class="target-track"><i id="fill-meter"></i><b id="fill-marker"></b></div></div>
+            <div class="target-row"><span>Foam crown</span><strong id="foam-target">12%</strong><div class="target-track foam-track"><i id="foam-meter"></i><b id="foam-marker"></b></div></div>
+          </div>
+          <p id="order-hint" class="order-hint">A clean, confident pour. Don't rush the crown.</p>
+        </section>
+
+        <section id="result-panel" class="glass-panel result-panel" hidden>
+          <p id="result-kicker" class="eyebrow">Order judged</p>
+          <h2 id="result-title">Perfect pour.</h2>
+          <p id="result-copy">The room noticed.</p>
+          <div class="result-breakdown"><span id="result-quality">Quality 94%</span><strong id="result-points">+820</strong></div>
+          <button id="next-button" class="primary-button" type="button">Next order <span>→</span></button>
+        </section>
+
+        <section id="controls" class="controls" hidden>
+          <div class="flow-control">
+            <div class="control-label"><span>Flow</span><strong id="flow-value">52%</strong></div>
+            <input id="flow-range" type="range" min="18" max="92" value="52" aria-label="Pour flow" />
+            <div class="range-labels"><span>Silk</span><span>Rush</span></div>
+          </div>
+          <div class="action-controls">
+            <button id="pour-button" class="pour-button" type="button"><span class="pour-icon">↓</span><span>Hold to pour</span></button>
+            <button id="serve-button" class="serve-button" type="button" disabled>Serve this pour</button>
+          </div>
+          <p id="live-status" class="live-status" aria-live="polite">Dial in your flow, then hold the pour.</p>
+        </section>
+
+        <section id="end-panel" class="glass-panel result-panel end-panel" hidden>
+          <p class="eyebrow">Shift complete</p>
+          <h2 id="end-title">Last call.</h2>
+          <p id="end-copy">A quiet room, a loud score.</p>
+          <div class="final-score"><span>Final score</span><strong id="final-score">0</strong><small id="best-score">Best 0</small></div>
+          <button id="restart-button" class="primary-button" type="button">Pour another shift <span>↻</span></button>
+        </section>
+      </main>
+      <div id="loading-status" class="loading-status">Preparing the taproom…</div>
+    </div>
+
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

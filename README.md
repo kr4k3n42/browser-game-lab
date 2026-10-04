@@ -16,7 +16,7 @@ npm install
 npm run dev
 ```
 
-Open the local URL shown by Vite, then choose **First Light** from the hub.
+Open the local URL shown by Vite, then choose **Perfect Pour** from the hub.
 
 ## Repository map
 

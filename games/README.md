@@ -2,6 +2,12 @@
 
 Each directory in this folder is an independent game project.
 
+## Current games
+
+- `tipper/` — Perfect Pour, a tactile timing and precision game about serving
+  beautiful drinks under pressure.
+- `first-showcase/` — First Light, the atmospheric framework prototype.
+
 Games may share the studio's core packages, but each game owns its own:
 
 - Creative direction
