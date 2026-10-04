@@ -6,6 +6,9 @@ export function createMobileControls(actions:{start:()=>void;anchor:()=>void;rel
   const panel=document.createElement('div');panel.id='mobile-controls';
   panel.innerHTML='<p class="mobile-status" role="status">Hold your phone comfortably, then enable tilt.</p><div class="mobile-tools"><button data-action="enable">ENABLE TILT / START</button><button data-action="calibrate">RECENTER</button><button data-action="anchor">ANCHOR</button></div><div class="mobile-holds"><button data-hold="up">UP</button><button data-hold="brake">STABILIZE</button><button data-hold="grab">GRAB</button><button data-hold="down">DOWN</button></div>';
   document.body.append(panel);
+  // Keep reset in the same flow as the touch buttons, not a competing fixed footer.
+  const reset=document.querySelector<HTMLButtonElement>('#start')!;
+  panel.querySelector('.mobile-tools')!.append(reset);
   const status=panel.querySelector<HTMLElement>('.mobile-status')!;
   let sample:{beta:number;gamma:number;time:number}|null=null,neutral:{beta:number;gamma:number}|null=null,enabled=false;
   const holds=new Map<number,string>();
@@ -51,8 +54,8 @@ export function createMobileControls(actions:{start:()=>void;anchor:()=>void;rel
     if(!enabled||!neutral||!sample||performance.now()-sample.time>1000){state.x=state.z=0;return;}
     const angle=(screen.orientation?.angle??0)*Math.PI/180;
     const beta=wrap(sample.beta-neutral.beta),gamma=wrap(sample.gamma-neutral.gamma);
-    state.x=response(gamma*Math.cos(angle)+beta*Math.sin(angle));
-    state.z=response(beta*Math.cos(angle)-gamma*Math.sin(angle));
+    state.x=-response(gamma*Math.cos(angle)+beta*Math.sin(angle));
+    state.z=-response(beta*Math.cos(angle)-gamma*Math.sin(angle));
   }};
 }
 

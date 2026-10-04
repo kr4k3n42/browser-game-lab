@@ -98,6 +98,9 @@ kbd.pressed{background:#91e9df;color:#06131a;box-shadow:0 0 16px #91e9df55}
 #mobile-controls button{width:auto;min-height:44px;border:1px solid #91e9df88;border-radius:9px;background:#06131a55;color:#91e9df;padding:10px 14px;font-size:11px;touch-action:none;user-select:none}
 #mobile-controls button.pressed{background:#91e9df;color:#06131a}
 .mobile-flight .keyboard-footer{display:none}
+.mobile-flight aside{display:none}
+.mobile-tools,.mobile-holds{flex-wrap:wrap}
+#mobile-controls #start{margin:0;width:auto;min-height:44px;padding:10px 14px}
 .mobile-flight aside{bottom:165px}
 .mobile-flight #start{width:150px;padding:7px;font-size:10px}
 .mobile-flight #drift-instrument{top:52px;transform:translateX(-50%) scale(.75);transform-origin:top center}
