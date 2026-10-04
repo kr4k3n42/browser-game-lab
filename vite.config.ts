@@ -8,6 +8,7 @@ export default defineConfig({
         hub: "index.html",
         firstShowcase: "games/first-showcase/index.html",
         tipper: "games/tipper/index.html",
+        stillFlight: "games/still-flight/index.html",
       },
     },
   },
