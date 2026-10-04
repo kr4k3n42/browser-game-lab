@@ -1,3 +1,10 @@
+---
+title: Browser Game Lab Prompting Playbook
+description: Plain-language collaboration rules for turning prompts into playable increments.
+version: 0.1.0
+status: active
+---
+
 # Prompting Playbook
 
 The repository is designed for plain-language collaboration. A useful request can include any of the following:

@@ -1,3 +1,10 @@
+---
+title: Browser Game Lab Creative Preferences
+description: Durable studio-wide preferences for prompt-driven browser game work.
+version: 0.1.0
+status: active
+---
+
 # Creative Preferences
 
 **Version:** 0.1  

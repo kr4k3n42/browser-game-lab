@@ -1,3 +1,10 @@
+---
+title: Browser Game Lab Art Direction
+description: Shared visual principles that games may override with their own direction.
+version: 0.1.0
+status: active
+---
+
 # Art Direction
 
 This is the shared studio direction, not a requirement that every game look the same.

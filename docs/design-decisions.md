@@ -1,3 +1,10 @@
+---
+title: Browser Game Lab Design Decisions
+description: Reviewable record of durable technical and collaboration choices.
+version: 0.1.0
+status: active
+---
+
 # Design Decisions
 
 ## 2026-10-03 — Independent games inside one studio repository
