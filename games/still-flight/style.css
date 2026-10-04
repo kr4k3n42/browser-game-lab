@@ -39,3 +39,18 @@ kbd.pressed{background:#91e9df;color:#06131a;box-shadow:0 0 16px #91e9df55}
 .mouse-left.pressed{background:#91e9df;box-shadow:0 0 12px #91e9df66}
 /* Opaque outer mask prevents the world showing beyond the curved faceplate. */
 #helmet{box-shadow:0 0 0 100vmax #000,inset 0 0 100px 35px #0009}
+#edge-navigation{position:fixed;inset:0;pointer-events:none}
+.edge-beacon{position:absolute;width:0;height:0;color:#86eddb;text-shadow:0 0 8px #43dacb}
+.edge-beacon[hidden]{display:none}
+.beacon-chevron{position:absolute;left:-10px;top:-18px;width:20px;height:36px;font:32px/36px system-ui;text-align:center}
+.beacon-label{position:absolute;left:-70px;top:-18px;width:140px;text-align:center;font:10px/12px monospace;white-space:pre;opacity:.85}
+.attached-beacon{color:#efb75d;text-shadow:0 0 8px #efb75d}
+.beacon-rate{color:#86cfd2;text-shadow:0 0 6px #86cfd244}
+.beacon-rate[data-motion="closing"]{color:#91cba7;text-shadow:0 0 6px #91cba744}
+.beacon-rate[data-motion="receding"]{color:#d18d94;text-shadow:0 0 6px #d18d9444}
+#helmet::after{content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;opacity:0}
+#helmet.collision-warning::after{box-shadow:inset 0 0 95px 28px #c6aa55aa;animation:collision-caution 1.25s ease-in-out infinite}
+#helmet.hard-impact::after{box-shadow:inset 0 0 110px 40px #c41000cc;opacity:var(--impact-opacity,1)}
+@keyframes collision-caution{0%,100%{opacity:.2}50%{opacity:.75}}
+@media(prefers-reduced-motion:reduce){#helmet.collision-warning::after{animation:none;opacity:.45}}
+
