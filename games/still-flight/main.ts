@@ -335,6 +335,7 @@ const dt=Math.min(engine.getDeltaTime()/1000,.04);
 let thrust=Vector3.Zero(),turn=Vector3.Zero();
 mobileControls.update();
 const mobile=mobileControls.state;
+if(mobile.portrait&&active&&!paused){paused=true;clear();}
 const braking=active&&!paused&&(keys.has('KeyS')||mobile.brake);
 if(active&&!paused){
   if((keys.has('Space')||mobile.grab)&&held<0&&cargo.some(c=>Vector3.Distance(position,c.root.position)<2.5&&velocity.subtract(c.velocity).length()<1))grab();
