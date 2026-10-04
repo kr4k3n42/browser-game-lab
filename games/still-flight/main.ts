@@ -189,7 +189,26 @@ function collideCargo(){
 const suit=new TransformNode('suit',scene);
 const hands=[-1,1].map((side)=>{const hand=new TransformNode('hand',scene);hand.parent=suit;hand.position.set(side*.36,-.3,.65);const palm=MeshBuilder.CreateBox('palm',{width:.16,height:.11,depth:.23},scene);palm.parent=hand;palm.material=white;const fingers=[];for(let j=0;j<4;j++){const f=MeshBuilder.CreateBox('finger',{width:.032,height:.035,depth:.15},scene);f.parent=hand;f.position.set((j-1.5)*.039,0,.17);f.material=white;fingers.push(f);}const thumb=MeshBuilder.CreateBox('thumb',{width:.045,height:.04,depth:.12},scene);thumb.parent=hand;thumb.position.set(-side*.1,0,.04);thumb.material=white;const light=MeshBuilder.CreateSphere('contact',{diameter:.035},scene);light.parent=hand;light.position.set(-side*.055,.06,.15);light.material=cyan;light.setEnabled(false);return {hand,fingers,thumb,light};});
 const updateBody=createAstronautBody(scene,suit,hands.map(h=>h.hand));
-const display=MeshBuilder.CreatePlane('palm display',{width:.32,height:.22},scene);display.parent=hands[0].hand;display.position.set(0,.2,.1);display.material=gold;display.setEnabled(false);
+const reassurance=document.createElement('div');reassurance.id='suit-reassurance';reassurance.hidden=true;
+reassurance.setAttribute('role','status');reassurance.setAttribute('aria-live','polite');document.body.append(reassurance);
+const calmMessages=[
+  'Take a breath. Then another. The stars can wait.',
+  'There is no up here. You have not been holding the universe upside down.',
+  'Feeling a little spaced out? That is technically correct.',
+  'Small inputs. Slow corrections. You are flying a suit, not arguing with it.',
+  'Hold S to stabilize. Panic remains an unsupported propulsion system.',
+  'Coasting is not failure. It is physics doing its very specific job.',
+  'Check your closing speed. The platform is not expecting a hug at six metres per second.',
+  'One thing at a time: breathe, orient, then make a small correction.',
+  'Your suit believes in you. Its confidence is not a substitute for braking.',
+  'You do not need to solve all of space right now. Just the next few metres.'
+];
+let calmIndex=-1;
+window.addEventListener('keydown',event=>{
+  if(event.code==='Tab'&&!event.repeat&&active&&!paused){
+    calmIndex=(calmIndex+1)%calmMessages.length;reassurance.textContent=calmMessages[calmIndex];
+  }
+});
 let position=Vector3.Zero(),velocity=Vector3.Zero(),angular=Vector3.Zero(),body=Quaternion.Identity();
 let headX=0,headY=0,looking=false,active=false,paused=false,diagnostics=false,attached=false,checkpoint=0;
 const mouseButtons=new Set<number>();
@@ -198,6 +217,7 @@ const actionLabels:Record<string,string>={KeyQ:'Roll left',KeyW:'Forward',KeyE:'
 document.querySelector('#left-keys')!.innerHTML=['Q','W','E','A','S','D','Z','X','C'].map(letter=>'<kbd data-code="Key'+letter+'">'+letter+'</kbd>').join('');
 const keyTiles=Array.from(document.querySelectorAll<HTMLElement>('[data-code]'));
 const actionName=document.querySelector('#action-name')!;
+actionLabels.Tab='Suit reassurance';
 const pressTimes=new Map<string,number>();
 let latestAction='';
 window.addEventListener('keydown',event=>{if(!active||paused||!actionLabels[event.code])return;pressTimes.set(event.code,performance.now());latestAction=event.code;});
@@ -264,7 +284,7 @@ if(!active)impactFlash=0;
 updateCollisionWarning(paused?0:dt);
 starShell.position.copyFrom(position);
 suit.position.copyFrom(position);suit.rotationQuaternion=body;camera.position.copyFrom(position);camera.rotationQuaternion=body.multiply(Quaternion.RotationYawPitchRoll(headY,headX,0));hud.style.transform=`translate(${-headY*350}px,${headX*350}px)`;
-hands.forEach((h,i)=>{const engaged=i===0?thrust.length()>0:turn.length()>0;h.light.setEnabled(engaged||braking);h.hand.position.set((i===0?-.36:.36)+(i===0?thrust.x*.08:0),-.3+(i===0?thrust.y*.08:0),.65+(i===0?thrust.z*.08:0));h.hand.rotation.set(i===1?turn.x*.3:0,i===1?turn.y*.3:0,i===1?turn.z*.3:0);h.fingers.forEach((f,j)=>f.rotation.x=braking?1.4:engaged&&j===0?.85:0);h.thumb.rotation.y=engaged||braking?(i===0?-.7:.7):0;});display.setEnabled(diagnostics);if(diagnostics)hands[0].hand.position.set(-.12,-.05,.65);
+hands.forEach((h,i)=>{const engaged=i===0?thrust.length()>0:turn.length()>0;h.light.setEnabled(engaged||braking);h.hand.position.set((i===0?-.36:.36)+(i===0?thrust.x*.08:0),-.3+(i===0?thrust.y*.08:0),.65+(i===0?thrust.z*.08:0));h.hand.rotation.set(i===1?turn.x*.3:0,i===1?turn.y*.3:0,i===1?turn.z*.3:0);h.fingers.forEach((f,j)=>f.rotation.x=braking?1.4:engaged&&j===0?.85:0);h.thumb.rotation.y=engaged||braking?(i===0?-.7:.7):0;});reassurance.hidden=!diagnostics;
 updateBody();
 updateNavigation();
 const nextCargo=cargo.find(c=>!c.visited);const distance=nextCargo?Vector3.Distance(position,nextCargo.root.position):0;goal.textContent=checkpoint===3?'ALL ANCHORS VISITED':`ANCHOR ${checkpoint+1} / 3 · ${distance.toFixed(1)} m`;telemetry.textContent=`${paused?'PAUSED · ESC TO RESUME':attached?`${latched?'ANCHORED':'GRIPPING'} · ${cargo[held].mass+astronautMass} kg`:'FREE DRIFT'} | ${velocity.length().toFixed(2)} m/s | ${(angular.length()*180/Math.PI).toFixed(1)} °/s`;const reachable=cargo.some(c=>Vector3.Distance(position,c.root.position)<2.5&&velocity.subtract(c.velocity).length()<1);gesture.textContent=attached?(latched?'ENTER · DETACH ANCHOR':'RELEASE SPACE · LET GO / ENTER · ANCHOR'):reachable?'HOLD SPACE · GRAB / ENTER · ANCHOR':diagnostics?'PALM DISPLAY · FLIGHT DISENGAGED':braking?'BOTH FISTS · STABILIZING':thrust.length()||turn.length()?'PINCH ENGAGED · THRUST ACTIVE':looking?'HEAD GLANCE HELD':'HANDS NEUTRAL · THRUST OFF';scene.render();});
