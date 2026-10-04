@@ -30,6 +30,78 @@ const positions=[new Vector3(0,0,12),new Vector3(10,4,22),new Vector3(-5,-3,32)]
 const anchors=positions.map((p,i)=>{const root=new TransformNode('anchor'+i,scene);root.position=p.clone();const box=MeshBuilder.CreateBox('platform',{width:3,height:.3+i*.45,depth:3},scene);box.parent=root;box.position.y=-1-i*.225;box.material=metal;const ring=MeshBuilder.CreateTorus('handhold',{diameter:1.4,thickness:.13},scene);ring.parent=root;ring.rotation.x=Math.PI/2;ring.material=cyan;return ring;});
 const cargo=anchors.map((ring,i)=>({root:ring.parent as TransformNode, mass:180+i*100, velocity:Vector3.Zero(), spin:Vector3.Zero(), orientation:Quaternion.Identity(), visited:false}));
 const astronautMass=100;
+const helmet=document.querySelector<HTMLElement>('#helmet')!;
+let impactFlash=0;
+function updateCollisionWarning(dt:number){
+  impactFlash=Math.max(0,impactFlash-dt);
+  const danger=cargo.some((c,i)=>{
+    if(held===i)return false;
+    const relative=velocity.subtract(c.velocity),offset=c.root.position.subtract(position);
+    const speedSquared=relative.lengthSquared();
+    if(speedSquared<1)return false;
+    const distance=offset.length(),closing=Vector3.Dot(relative,offset)/Math.max(distance,.001);
+    const time=Vector3.Dot(offset,relative)/speedSquared;
+    // Predict a near pass in the next five seconds, rather than warning on speed alone.
+    return closing>1&&time>0&&time<5&&offset.subtract(relative.scale(time)).length()<2.5;
+  });
+  helmet.classList.toggle('collision-warning',danger&&impactFlash===0);
+  helmet.classList.toggle('hard-impact',impactFlash>0);
+  helmet.style.setProperty('--impact-opacity',String(Math.min(1,impactFlash/.3)));
+}
+// Navigation stays on the helmet, independent of the head-glance HUD offset.
+const navigation=document.createElement('div');navigation.id='edge-navigation';
+navigation.setAttribute('aria-hidden','true');document.body.append(navigation);
+function formatMass(kg:number){
+  if(!Number.isFinite(kg)||kg<=0)return 'MASS UNRESOLVED';
+  const units:[[number,string],[number,string],[number,string],[number,string]]=[[1e12,'billion tonnes'],[1e9,'million tonnes'],[1e3,'tonnes'],[1,'kg']];
+  const [scale,unit]=units.find(([scale])=>kg>=scale)??units[3];
+  return `≈${(kg/scale).toLocaleString('en-US',{maximumFractionDigits:1})} ${unit}`;
+}
+const beacons=cargo.map(c=>{const marker=document.createElement('div');marker.className='edge-beacon';marker.innerHTML='<span class="beacon-chevron">›</span><span class="beacon-label"><span class="beacon-name"></span><br><span class="beacon-distance"></span><br><span class="beacon-rate"></span></span>';marker.querySelector('.beacon-name')!.textContent=formatMass(c.mass);navigation.append(marker);marker.title='Estimated mass: '+formatMass(c.mass);return marker;});
+function updateNavigation(){
+  const w=canvas.clientWidth,h=canvas.clientHeight;
+  const border=parseFloat(getComputedStyle(document.querySelector('#helmet')!).borderTopWidth);
+  const inset=border+20,halfW=w/2-inset,halfH=h/2-inset;
+  if(halfW<=0||halfH<=0)return;
+  const rx=Math.max(1,w*.2-inset),ry=Math.max(1,h*.2-inset);
+  const inside=(x:number,y:number)=>{
+    if(Math.abs(x)>halfW||Math.abs(y)>halfH)return false;
+    const cx=Math.max(0,Math.abs(x)-(halfW-rx))/rx,cy=Math.max(0,Math.abs(y)-(halfH-ry))/ry;
+    return cx*cx+cy*cy<=1;
+  };
+  const inverse=camera.rotationQuaternion!.conjugate(),tan=Math.tan(camera.fov/2),aspect=engine.getAspectRatio(camera);
+  cargo.forEach((c,i)=>{
+    const delta=c.root.position.subtract(camera.position),local=rotate(delta,inverse);
+    const depth=Math.max(Math.abs(local.z),.001);
+    const x=local.x/depth/tan/aspect*w/2,y=-local.y/depth/tan*h/2;
+    const marker=beacons[i];
+    const distance=delta.length(),visible=local.z>0&&inside(x,y);
+    marker.hidden=distance<.1;
+    if(marker.hidden)return;
+    // Behind the astronaut, choose the shortest turn; exactly aft uses the lower edge.
+    const length=Math.hypot(x,y),dx=length>.001?x/length:0,dy=length>.001?y/length:1;
+    let markerX:number,markerY:number;
+    if(visible){
+      // Keep the ring clear: the chevron tip points toward its projected center.
+      markerX=x-dx*28;markerY=y-dy*28;
+    }else{
+      let lo=0,hi=Math.hypot(w,h);
+      for(let step=0;step<20;step++){const mid=(lo+hi)/2;if(inside(dx*mid,dy*mid))lo=mid;else hi=mid;}
+      markerX=dx*lo;markerY=dy*lo;
+    }
+    marker.style.left=`${w/2+markerX}px`;marker.style.top=`${h/2+markerY}px`;
+    marker.classList.toggle('attached-beacon',held===i);
+    marker.querySelector<HTMLElement>('.beacon-chevron')!.style.transform=`rotate(${Math.atan2(dy,dx)}rad)`;
+    const label=marker.querySelector<HTMLElement>('.beacon-label')!;
+    const closing=Vector3.Dot(velocity.subtract(c.velocity),delta.scale(1/distance));
+    const rate=Math.abs(closing)<.005?0:closing;
+    label.querySelector<HTMLElement>('.beacon-distance')!.textContent=`${distance.toFixed(1)} m`;
+    const speedLabel=label.querySelector<HTMLElement>('.beacon-rate')!;
+    speedLabel.textContent=`${rate>0?'+':''}${rate.toFixed(2)} m/s`;
+    speedLabel.dataset.motion=rate>0?'closing':rate<0?'receding':'neutral';
+    label.style.transform=`translate(${-dx*76}px,${-dy*42}px)`;
+  });
+}
 let held=-1;
 let latched=false;
 let gripOffset=Vector3.Zero(),gripOrientation=Quaternion.Identity();
@@ -72,6 +144,7 @@ function bumpStations(){
       c.root.position.subtractInPlace(normal.scale((hit.depth+.001)*invB/total));
       const closing=Vector3.Dot(velocity.subtract(c.velocity),normal);
       if(closing<0){
+        if(-closing>=2)impactFlash=.9;
         const impulse=-(1+.12)*closing/total;
         velocity.addInPlace(normal.scale(impulse*invA));
         c.velocity.subtractInPlace(normal.scale(impulse*invB));
@@ -106,7 +179,11 @@ function collideCargo(){
     const ma=ca.mass+(held===a?astronautMass:0),mb=cb.mass+(held===b?astronautMass:0),invA=1/ma,invB=1/mb;
     ca.root.position.subtractInPlace(hit.normal.scale((hit.depth+.001)*invA/(invA+invB)));
     cb.root.position.addInPlace(hit.normal.scale((hit.depth+.001)*invB/(invA+invB)));
-    if(collisionImpulse(ca.velocity,cb.velocity,hit.normal,ma,mb)>0)message.textContent='Station contact. Momentum exchanged between platforms.';
+    const impactSpeed=Vector3.Dot(ca.velocity.subtract(cb.velocity),hit.normal);
+    if(collisionImpulse(ca.velocity,cb.velocity,hit.normal,ma,mb)>0){
+      if((held===a||held===b)&&impactSpeed>=2)impactFlash=.9;
+      message.textContent='Station contact. Momentum exchanged between platforms.';
+    }
   }
 }
 const suit=new TransformNode('suit',scene);
@@ -183,9 +260,13 @@ if(active&&!paused){
 }
 
 updateKeyboard();
+if(!active)impactFlash=0;
+updateCollisionWarning(paused?0:dt);
 starShell.position.copyFrom(position);
 suit.position.copyFrom(position);suit.rotationQuaternion=body;camera.position.copyFrom(position);camera.rotationQuaternion=body.multiply(Quaternion.RotationYawPitchRoll(headY,headX,0));hud.style.transform=`translate(${-headY*350}px,${headX*350}px)`;
 hands.forEach((h,i)=>{const engaged=i===0?thrust.length()>0:turn.length()>0;h.light.setEnabled(engaged||braking);h.hand.position.set((i===0?-.36:.36)+(i===0?thrust.x*.08:0),-.3+(i===0?thrust.y*.08:0),.65+(i===0?thrust.z*.08:0));h.hand.rotation.set(i===1?turn.x*.3:0,i===1?turn.y*.3:0,i===1?turn.z*.3:0);h.fingers.forEach((f,j)=>f.rotation.x=braking?1.4:engaged&&j===0?.85:0);h.thumb.rotation.y=engaged||braking?(i===0?-.7:.7):0;});display.setEnabled(diagnostics);if(diagnostics)hands[0].hand.position.set(-.12,-.05,.65);
 updateBody();
+updateNavigation();
 const nextCargo=cargo.find(c=>!c.visited);const distance=nextCargo?Vector3.Distance(position,nextCargo.root.position):0;goal.textContent=checkpoint===3?'ALL ANCHORS VISITED':`ANCHOR ${checkpoint+1} / 3 · ${distance.toFixed(1)} m`;telemetry.textContent=`${paused?'PAUSED · ESC TO RESUME':attached?`${latched?'ANCHORED':'GRIPPING'} · ${cargo[held].mass+astronautMass} kg`:'FREE DRIFT'} | ${velocity.length().toFixed(2)} m/s | ${(angular.length()*180/Math.PI).toFixed(1)} °/s`;const reachable=cargo.some(c=>Vector3.Distance(position,c.root.position)<2.5&&velocity.subtract(c.velocity).length()<1);gesture.textContent=attached?(latched?'ENTER · DETACH ANCHOR':'RELEASE SPACE · LET GO / ENTER · ANCHOR'):reachable?'HOLD SPACE · GRAB / ENTER · ANCHOR':diagnostics?'PALM DISPLAY · FLIGHT DISENGAGED':braking?'BOTH FISTS · STABILIZING':thrust.length()||turn.length()?'PINCH ENGAGED · THRUST ACTIVE':looking?'HEAD GLANCE HELD':'HANDS NEUTRAL · THRUST OFF';scene.render();});
 window.addEventListener('resize',()=>engine.resize());
+
