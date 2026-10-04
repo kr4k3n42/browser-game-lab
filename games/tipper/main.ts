@@ -484,12 +484,16 @@ async function start(): Promise<void> {
   pourButton.addEventListener("pointercancel", stopPour);
   serveButton.addEventListener("click", judgeOrder);
   document.addEventListener("keydown", (event) => {
-    if (event.code === "Space") {
+    if (event.code === "Space" || event.code === "ArrowDown") {
       event.preventDefault();
       if (!event.repeat) startPour();
     }
-    if (event.code === "Enter" && shiftStarted && !judging) judgeOrder();
+    if ((event.code === "Enter" || event.code === "ArrowUp") && shiftStarted && !judging) {
+      event.preventDefault();
+      judgeOrder();
+    }
     if (event.code === "ArrowLeft" || event.code === "ArrowRight") {
+      event.preventDefault();
       const change = event.code === "ArrowLeft" ? -3 : 3;
       flowRange.value = String(clamp(Number(flowRange.value) + change, 18, 92));
       flow = Number(flowRange.value) / 100;
@@ -497,7 +501,7 @@ async function start(): Promise<void> {
     }
   });
   document.addEventListener("keyup", (event) => {
-    if (event.code === "Space") stopPour();
+    if (event.code === "Space" || event.code === "ArrowDown") stopPour();
   });
 }
 
