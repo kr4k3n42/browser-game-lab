@@ -43,7 +43,6 @@ const endPanel = document.querySelector<HTMLElement>("#end-panel")!;
 const controls = document.querySelector<HTMLElement>("#controls")!;
 const singleActionControls = document.querySelector<HTMLElement>("#single-action-controls")!;
 const dualActionControls = document.querySelector<HTMLElement>("#dual-action-controls")!;
-const rushPanel = document.querySelector<HTMLElement>("#rush-panel")!;
 const startButton = document.querySelector<HTMLButtonElement>("#start-button")!;
 const nextButton = document.querySelector<HTMLButtonElement>("#next-button")!;
 const restartButton = document.querySelector<HTMLButtonElement>("#restart-button")!;
@@ -53,7 +52,6 @@ const secondaryPourButton = document.querySelector<HTMLButtonElement>("#pour-sec
 const primaryPourLabel = document.querySelector<HTMLElement>("#primary-pour-label")!;
 const secondaryPourLabel = document.querySelector<HTMLElement>("#secondary-pour-label")!;
 const serveButton = document.querySelector<HTMLButtonElement>("#serve-button")!;
-const switchButton = document.querySelector<HTMLButtonElement>("#switch-button")!;
 const flowRange = document.querySelector<HTMLInputElement>("#flow-range")!;
 const flowValue = document.querySelector<HTMLElement>("#flow-value")!;
 const liveStatus = document.querySelector<HTMLElement>("#live-status")!;
@@ -64,15 +62,7 @@ const roundValue = document.querySelector<HTMLElement>("#round-value")!;
 const roundSuffix = document.querySelector<HTMLElement>("#round-suffix")!;
 const orderName = document.querySelector<HTMLElement>("#order-name")!;
 const tipValue = document.querySelector<HTMLElement>("#tip-value")!;
-const fillTarget = document.querySelector<HTMLElement>("#fill-target")!;
-const foamTarget = document.querySelector<HTMLElement>("#foam-target")!;
-const fillMeter = document.querySelector<HTMLElement>("#fill-meter")!;
-const foamMeter = document.querySelector<HTMLElement>("#foam-meter")!;
-const fillMarker = document.querySelector<HTMLElement>("#fill-marker")!;
-const foamMarker = document.querySelector<HTMLElement>("#foam-marker")!;
 const orderHint = document.querySelector<HTMLElement>("#order-hint")!;
-const rushName = document.querySelector<HTMLElement>("#rush-name")!;
-const rushStatus = document.querySelector<HTMLElement>("#rush-status")!;
 const resultKicker = document.querySelector<HTMLElement>("#result-kicker")!;
 const resultTitle = document.querySelector<HTMLElement>("#result-title")!;
 const resultCopy = document.querySelector<HTMLElement>("#result-copy")!;
@@ -99,7 +89,7 @@ const secondaryReadoutFillMarker = document.querySelector<HTMLElement>("#seconda
 const primaryReadoutFoamMarker = document.querySelector<HTMLElement>("#primary-readout-foam-marker")!;
 const secondaryReadoutFoamMarker = document.querySelector<HTMLElement>("#secondary-readout-foam-marker")!;
 
-if (!canvas || !loadingStatus || !startPanel || !orderPanel || !rushPanel || !resultPanel || !endPanel || !controls || !singleActionControls || !dualActionControls || !startButton || !nextButton || !restartButton || !pourButton || !primaryPourButton || !secondaryPourButton || !primaryPourLabel || !secondaryPourLabel || !serveButton || !switchButton || !flowRange || !flowValue || !liveStatus || !scoreValue || !streakValue || !livesValue || !roundValue || !roundSuffix || !orderName || !tipValue || !fillTarget || !foamTarget || !fillMeter || !foamMeter || !fillMarker || !foamMarker || !orderHint || !rushName || !rushStatus || !resultKicker || !resultTitle || !resultCopy || !resultQuality || !resultPoints || !endTitle || !endCopy || !finalScore || !bestScore || !primaryPintReadout || !secondaryPintReadout || !primaryReadoutName || !secondaryReadoutName || !primaryReadoutFill || !secondaryReadoutFill || !primaryReadoutFoam || !secondaryReadoutFoam || !primaryReadoutFillBar || !secondaryReadoutFillBar || !primaryReadoutFoamBar || !secondaryReadoutFoamBar || !primaryReadoutFillMarker || !secondaryReadoutFillMarker || !primaryReadoutFoamMarker || !secondaryReadoutFoamMarker) {
+if (!canvas || !loadingStatus || !startPanel || !orderPanel || !resultPanel || !endPanel || !controls || !singleActionControls || !dualActionControls || !startButton || !nextButton || !restartButton || !pourButton || !primaryPourButton || !secondaryPourButton || !primaryPourLabel || !secondaryPourLabel || !serveButton || !flowRange || !flowValue || !liveStatus || !scoreValue || !streakValue || !livesValue || !roundValue || !roundSuffix || !orderName || !tipValue || !orderHint || !resultKicker || !resultTitle || !resultCopy || !resultQuality || !resultPoints || !endTitle || !endCopy || !finalScore || !bestScore || !primaryPintReadout || !secondaryPintReadout || !primaryReadoutName || !secondaryReadoutName || !primaryReadoutFill || !secondaryReadoutFill || !primaryReadoutFoam || !secondaryReadoutFoam || !primaryReadoutFillBar || !secondaryReadoutFillBar || !primaryReadoutFoamBar || !secondaryReadoutFoamBar || !primaryReadoutFillMarker || !secondaryReadoutFillMarker || !primaryReadoutFoamMarker || !secondaryReadoutFoamMarker) {
   throw new Error("Perfect Pour could not find its interface.");
 }
 
@@ -645,22 +635,8 @@ function updateHud(): void {
   roundSuffix.textContent = isRushRound() ? `· Pint ${activeTicket + 1} / 2` : "/ 06";
   orderName.textContent = order.name;
   tipValue.textContent = order.tip;
-  fillTarget.textContent = percent(order.targetFill);
-  foamTarget.textContent = percent(order.targetFoam);
   orderHint.textContent = order.hint;
-  fillMeter.style.width = `${clamp(fill, 0, 1) * 100}%`;
-  foamMeter.style.width = `${clamp(foamAmount / 0.3, 0, 1) * 100}%`;
-  fillMarker.style.left = `${order.targetFill * 100}%`;
-  foamMarker.style.left = `${clamp(order.targetFoam / 0.3, 0, 1) * 100}%`;
   flowValue.textContent = `${Math.round(flow * 100)}%`;
-  rushPanel.hidden = !isRushRound();
-  if (isRushRound()) {
-    const other = tickets[activeTicket === 0 ? 1 : 0];
-    rushName.textContent = other.order.name;
-    rushStatus.textContent = other.served ? "Served" : activeTicket === 0 ? "Waiting at the rail" : "Waiting for your pour";
-    switchButton.textContent = activeTicket === 0 ? "Switch pint" : "Back to first";
-    switchButton.disabled = judging || other.served;
-  }
   serveButton.disabled = fill < 0.32 || judging || currentTicket().served;
   singleActionControls.hidden = isRushRound();
   dualActionControls.hidden = !isRushRound();
@@ -775,14 +751,6 @@ function stopAllPouring(): void {
   secondStream.isVisible = false;
   secondStreamTip.isVisible = false;
   if (!judging && fill >= 0.32) liveStatus.textContent = "Looks close. Serve it—or risk a better pour.";
-}
-
-function switchTicket(): void {
-  if (!isRushRound() || judging || tickets.length < 2) return;
-  stopPourFor(activeTicket);
-  saveActiveTicket();
-  activeTicket = activeTicket === 0 ? 1 : 0;
-  loadActiveTicket();
 }
 
 function judgeOrder(): void {
@@ -973,7 +941,6 @@ async function start(): Promise<void> {
   bindPourButton(primaryPourButton, 0);
   bindPourButton(secondaryPourButton, 1);
   serveButton.addEventListener("click", judgeOrder);
-  switchButton.addEventListener("click", switchTicket);
   document.addEventListener("keydown", (event) => {
     if (event.code === "Space" || event.code === "ArrowDown") {
       event.preventDefault();
