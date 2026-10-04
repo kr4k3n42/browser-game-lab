@@ -7,6 +7,7 @@ export default defineConfig({
       input: {
         hub: "index.html",
         firstShowcase: "games/first-showcase/index.html",
+        tipper: "games/tipper/index.html",
       },
     },
   },
