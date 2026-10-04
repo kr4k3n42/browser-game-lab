@@ -88,6 +88,10 @@ kbd.pressed{background:#91e9df;color:#06131a;box-shadow:0 0 16px #91e9df55}
 #drift-instrument{top:96px;gap:20px}
 #motion-readout{top:220px}
 .dial-left{position:absolute;right:94px;top:38px}
+.dial-up,.dial-left,.dial-right{width:8px;height:8px;font-size:0;background:#86cfd2}
+.dial-up{left:calc(50% - 4px);clip-path:polygon(50% 0,100% 100%,0 100%)}
+.dial-left{clip-path:polygon(0 50%,100% 0,100% 100%)}
+.dial-right{clip-path:polygon(100% 50%,0 0,0 100%)}
 .axial-gauge{position:relative;width:24px;margin-left:0}
 .axial-gauge .roll-gauge{top:84px;left:50%;transform:translateX(-50%);width:54px}
 .axial-gauge .roll-gauge .axis-track{width:54px;flex:none}
