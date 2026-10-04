@@ -1,0 +1,11 @@
+# Still Flight Lab
+
+Control prototype, separate from the existing Still scene. Visit three floating cargo anchors. Hold Space within 2.5 m at relative speed below 1 m/s to grip; release Space to let go. Enter secures a grip or directly latches a reachable anchor; Enter again detaches. A latched anchor persists after Space release. Holding Space while approaching grabs automatically when eligible. Losing focus releases temporary grips but preserves latched anchors. Any anchor can be grabbed. Resources are unlimited for practice.
+
+Grabbing mixes linear momentum using a 100 kg suited astronaut and cargo masses of 180, 280, and 380 kg. Thrusters and stabilization act on the combined mass with reduced response. The grip preserves the relative pose as cargo rotates. Releasing preserves cargo drift and astronaut velocity, including motion from rotation. Angular momentum transfer is a simplified mass-weighted approximation, not a full inertia-tensor or articulated grip simulation.
+
+Free-flight body contact uses three overlapping suit spheres against oriented platform boxes and ring rims. A mass-weighted impulse with 0.12 restitution transfers linear momentum on impact; penetration correction separates both bodies. Adaptive translation substeps reduce tunneling. Contact currently omits friction, collision torque and articulated limbs. Attached objects skip contact resolution against the suit.
+
+Translation and rotation use body-relative acceleration. Releasing a key stops acceleration but preserves linear and angular momentum. S actively stabilizes and overrides directional thrust, including while viewing diagnostics. Either mouse button holds limited head gaze; release returns it to suit-forward. The helmet HUD and procedural gloves follow the suit, not the gaze.
+
+Glove poses illustrate proposed future VR gestures; they are not a tested hand-tracking implementation. Hold Tab to raise the palm display; release to return to neutral. W/X thrust forward/backward, A/D strafe, Z thrusts toward your head (Shift also works), and C toward your feet; Ctrl has no flight function. All directions follow suit orientation, independent of head gaze. Diagnostics disengage directional commands while existing drift continues. Physics currently excludes tethers, resource consumption and orbital gravity. Reset and pause are available.
