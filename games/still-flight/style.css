@@ -103,6 +103,7 @@ kbd.pressed{background:#91e9df;color:#06131a;box-shadow:0 0 16px #91e9df55}
 #mobile-controls button{width:auto;min-height:44px;border:1px solid #91e9df88;border-radius:9px;background:#06131a55;color:#91e9df;padding:10px 14px;font-size:11px;touch-action:none;user-select:none}
 #mobile-controls button.pressed{background:#91e9df;color:#06131a}
 .mobile-flight .keyboard-footer{display:none}
+.mobile-flight #game-title{width:108px;height:34px;padding:11px 0 0 4px;border-radius:0 0 13px 13px;font-size:9px;letter-spacing:4px}
 .mobile-flight aside{display:none}
 .mobile-tools,.mobile-holds{flex-wrap:wrap}
 #mobile-controls #start{margin:0;width:auto;min-height:44px;padding:10px 14px}

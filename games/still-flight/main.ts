@@ -342,7 +342,7 @@ if(active&&!paused){
   if(!diagnostics&&!braking){
     thrust=new Vector3(axis('KeyD','KeyA')+mobile.x,Number(keys.has('KeyZ')||keys.has('ShiftLeft')||keys.has('ShiftRight'))-Number(keys.has('KeyC'))+mobile.up-mobile.down,axis('KeyW','KeyX')+mobile.z);
     if(thrust.length()>1)thrust.normalize();
-    turn=new Vector3(axis('ArrowDown','ArrowUp'),axis('ArrowRight','ArrowLeft'),axis('KeyQ','KeyE'));
+    turn=new Vector3(axis('ArrowDown','ArrowUp'),axis('ArrowRight','ArrowLeft'),axis('KeyQ','KeyE')+mobile.roll);
   }
   const steps=Math.max(1,Math.ceil(dt*Math.max(velocity.length(),...cargo.map(c=>c.velocity.length()))/.08));
   const step=dt/steps;
