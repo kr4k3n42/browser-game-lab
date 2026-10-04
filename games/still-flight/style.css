@@ -59,6 +59,7 @@ kbd.pressed{background:#91e9df;color:#06131a;box-shadow:0 0 16px #91e9df55}
 #hud>span,#hud #telemetry{display:none}
 #game-title,#flight-status{position:fixed;left:50%;transform:translateX(-50%);text-align:center;pointer-events:none;color:#86eddb;text-shadow:0 0 10px #43dacb}
 #game-title{top:10px;font-size:11px;letter-spacing:6px;padding-left:6px}
+#game-title{top:0;z-index:7;width:156px;height:calc(54px + env(safe-area-inset-top,0px));padding:calc(22px + env(safe-area-inset-top,0px)) 0 0 6px;background:#111922;border-radius:0 0 20px 20px;font-size:11px;line-height:14px;box-shadow:0 4px 12px #0006}
 #flight-status{top:48px;font-size:13px;letter-spacing:2px}
 #motion-readout{position:fixed;top:78px;left:50%;transform:translateX(-50%);width:min(440px,78vw);display:grid;grid-template-columns:1fr 1fr;gap:24px;color:#86cfd2;font:11px/1.6 monospace;text-shadow:0 0 6px #43dacb44;pointer-events:none}
 .motion-heading{text-align:center;font-size:9px;letter-spacing:1.5px;margin-bottom:7px;opacity:.8}
