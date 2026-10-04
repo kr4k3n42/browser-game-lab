@@ -9,6 +9,7 @@ Obsidian vault: make a great beer pour while balancing speed, foam, and risk.
 - Six escalating drink orders with different fill and foam targets
 - Nonic pint-glass geometry with a rolled rim, shoulder ring, heavy base, and visible pint proportions
 - Six separated tap handles with beer names above the faucets
+- Live vertical fill-line and foam-crown readouts projected onto each active pint
 - Rush-hour rounds from order four onward with two simultaneous pints; pour both with the two buttons or A/D, then switch tickets while preserving each pour
 - Hold-to-pour interaction with mouse, touch, or Space
 - Flow control with a slider or Arrow keys

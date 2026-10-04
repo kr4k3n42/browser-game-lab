@@ -9,6 +9,7 @@ import {
   HemisphericLight,
   Mesh,
   MeshBuilder,
+  Matrix,
   PointLight,
   Scene,
   ShadowGenerator,
@@ -81,8 +82,20 @@ const endTitle = document.querySelector<HTMLElement>("#end-title")!;
 const endCopy = document.querySelector<HTMLElement>("#end-copy")!;
 const finalScore = document.querySelector<HTMLElement>("#final-score")!;
 const bestScore = document.querySelector<HTMLElement>("#best-score")!;
+const primaryPintReadout = document.querySelector<HTMLElement>("#primary-pint-readout")!;
+const secondaryPintReadout = document.querySelector<HTMLElement>("#secondary-pint-readout")!;
+const primaryReadoutName = document.querySelector<HTMLElement>("#primary-readout-name")!;
+const secondaryReadoutName = document.querySelector<HTMLElement>("#secondary-readout-name")!;
+const primaryReadoutFill = document.querySelector<HTMLElement>("#primary-readout-fill")!;
+const secondaryReadoutFill = document.querySelector<HTMLElement>("#secondary-readout-fill")!;
+const primaryReadoutFoam = document.querySelector<HTMLElement>("#primary-readout-foam")!;
+const secondaryReadoutFoam = document.querySelector<HTMLElement>("#secondary-readout-foam")!;
+const primaryReadoutFillBar = document.querySelector<HTMLElement>("#primary-readout-fill-bar")!;
+const secondaryReadoutFillBar = document.querySelector<HTMLElement>("#secondary-readout-fill-bar")!;
+const primaryReadoutFoamBar = document.querySelector<HTMLElement>("#primary-readout-foam-bar")!;
+const secondaryReadoutFoamBar = document.querySelector<HTMLElement>("#secondary-readout-foam-bar")!;
 
-if (!canvas || !loadingStatus || !startPanel || !orderPanel || !rushPanel || !resultPanel || !endPanel || !controls || !singleActionControls || !dualActionControls || !startButton || !nextButton || !restartButton || !pourButton || !primaryPourButton || !secondaryPourButton || !primaryPourLabel || !secondaryPourLabel || !serveButton || !switchButton || !flowRange || !flowValue || !liveStatus || !scoreValue || !streakValue || !livesValue || !roundValue || !roundSuffix || !orderName || !tipValue || !fillTarget || !foamTarget || !fillMeter || !foamMeter || !fillMarker || !foamMarker || !orderHint || !rushName || !rushStatus || !resultKicker || !resultTitle || !resultCopy || !resultQuality || !resultPoints || !endTitle || !endCopy || !finalScore || !bestScore) {
+if (!canvas || !loadingStatus || !startPanel || !orderPanel || !rushPanel || !resultPanel || !endPanel || !controls || !singleActionControls || !dualActionControls || !startButton || !nextButton || !restartButton || !pourButton || !primaryPourButton || !secondaryPourButton || !primaryPourLabel || !secondaryPourLabel || !serveButton || !switchButton || !flowRange || !flowValue || !liveStatus || !scoreValue || !streakValue || !livesValue || !roundValue || !roundSuffix || !orderName || !tipValue || !fillTarget || !foamTarget || !fillMeter || !foamMeter || !fillMarker || !foamMarker || !orderHint || !rushName || !rushStatus || !resultKicker || !resultTitle || !resultCopy || !resultQuality || !resultPoints || !endTitle || !endCopy || !finalScore || !bestScore || !primaryPintReadout || !secondaryPintReadout || !primaryReadoutName || !secondaryReadoutName || !primaryReadoutFill || !secondaryReadoutFill || !primaryReadoutFoam || !secondaryReadoutFoam || !primaryReadoutFillBar || !secondaryReadoutFillBar || !primaryReadoutFoamBar || !secondaryReadoutFoamBar) {
   throw new Error("Perfect Pour could not find its interface.");
 }
 
@@ -651,6 +664,34 @@ function updateHud(): void {
   secondaryPourLabel.textContent = tickets[1]?.order.name ?? "Second pint";
 }
 
+function updatePintReadouts(): void {
+  const active = shiftStarted && resultPanel.hidden && endPanel.hidden;
+  const cssRect = canvas.getBoundingClientRect();
+  const renderWidth = engine.getRenderWidth();
+  const renderHeight = engine.getRenderHeight();
+  const scaleX = cssRect.width / renderWidth;
+  const scaleY = cssRect.height / renderHeight;
+  const camera = scene.activeCamera as ArcRotateCamera;
+  const projectReadout = (element: HTMLElement, x: number, y: number): void => {
+    const projected = Vector3.Project(new Vector3(x, y, GLASS_Z + 0.12), Matrix.Identity(), scene.getTransformMatrix(), camera.viewport.toGlobal(renderWidth, renderHeight));
+    element.style.left = `${cssRect.left + projected.x * scaleX}px`;
+    element.style.top = `${cssRect.top + projected.y * scaleY}px`;
+  };
+  const updateReadout = (element: HTMLElement, nameElement: HTMLElement, fillElement: HTMLElement, foamElement: HTMLElement, fillBar: HTMLElement, foamBar: HTMLElement, ticket: BeerTicket | undefined, x: number): void => {
+    const visible = active && Boolean(ticket) && !ticket?.served;
+    element.hidden = !visible;
+    if (!visible || !ticket) return;
+    nameElement.textContent = ticket.order.name;
+    fillElement.textContent = percent(ticket.fill);
+    foamElement.textContent = percent(ticket.foam / 0.3);
+    fillBar.style.width = `${clamp(ticket.fill, 0, 1) * 100}%`;
+    foamBar.style.width = `${clamp(ticket.foam / 0.3, 0, 1) * 100}%`;
+    projectReadout(element, x - 0.62, GLASS_BASE_Y + 0.7);
+  };
+  updateReadout(primaryPintReadout, primaryReadoutName, primaryReadoutFill, primaryReadoutFoam, primaryReadoutFillBar, primaryReadoutFoamBar, tickets[0], GLASS_X);
+  updateReadout(secondaryPintReadout, secondaryReadoutName, secondaryReadoutFill, secondaryReadoutFoam, secondaryReadoutFillBar, secondaryReadoutFoamBar, tickets[1], SECOND_GLASS_X);
+}
+
 function setOrderColor(): void {
   const primaryOrder = tickets[0]?.order ?? orders[activeOrder];
   const secondaryOrder = tickets[1]?.order ?? orders[(activeOrder + 1) % orders.length];
@@ -902,6 +943,7 @@ async function start(): Promise<void> {
     time += delta;
     updateScene(delta, time);
     scene.render();
+    updatePintReadouts();
   });
   window.addEventListener("resize", () => engine.resize());
 
