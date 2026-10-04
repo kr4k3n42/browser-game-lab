@@ -26,6 +26,13 @@ type Order = {
   hint: string;
 };
 
+type BeerTicket = {
+  order: Order;
+  fill: number;
+  foam: number;
+  served: boolean;
+};
+
 const canvas = document.querySelector<HTMLCanvasElement>("#game-canvas")!;
 const loadingStatus = document.querySelector<HTMLDivElement>("#loading-status")!;
 const startPanel = document.querySelector<HTMLElement>("#start-panel")!;
@@ -33,11 +40,13 @@ const orderPanel = document.querySelector<HTMLElement>("#order-panel")!;
 const resultPanel = document.querySelector<HTMLElement>("#result-panel")!;
 const endPanel = document.querySelector<HTMLElement>("#end-panel")!;
 const controls = document.querySelector<HTMLElement>("#controls")!;
+const rushPanel = document.querySelector<HTMLElement>("#rush-panel")!;
 const startButton = document.querySelector<HTMLButtonElement>("#start-button")!;
 const nextButton = document.querySelector<HTMLButtonElement>("#next-button")!;
 const restartButton = document.querySelector<HTMLButtonElement>("#restart-button")!;
 const pourButton = document.querySelector<HTMLButtonElement>("#pour-button")!;
 const serveButton = document.querySelector<HTMLButtonElement>("#serve-button")!;
+const switchButton = document.querySelector<HTMLButtonElement>("#switch-button")!;
 const flowRange = document.querySelector<HTMLInputElement>("#flow-range")!;
 const flowValue = document.querySelector<HTMLElement>("#flow-value")!;
 const liveStatus = document.querySelector<HTMLElement>("#live-status")!;
@@ -45,6 +54,7 @@ const scoreValue = document.querySelector<HTMLElement>("#score-value")!;
 const streakValue = document.querySelector<HTMLElement>("#streak-value")!;
 const livesValue = document.querySelector<HTMLElement>("#lives-value")!;
 const roundValue = document.querySelector<HTMLElement>("#round-value")!;
+const roundSuffix = document.querySelector<HTMLElement>("#round-suffix")!;
 const orderName = document.querySelector<HTMLElement>("#order-name")!;
 const tipValue = document.querySelector<HTMLElement>("#tip-value")!;
 const fillTarget = document.querySelector<HTMLElement>("#fill-target")!;
@@ -54,6 +64,8 @@ const foamMeter = document.querySelector<HTMLElement>("#foam-meter")!;
 const fillMarker = document.querySelector<HTMLElement>("#fill-marker")!;
 const foamMarker = document.querySelector<HTMLElement>("#foam-marker")!;
 const orderHint = document.querySelector<HTMLElement>("#order-hint")!;
+const rushName = document.querySelector<HTMLElement>("#rush-name")!;
+const rushStatus = document.querySelector<HTMLElement>("#rush-status")!;
 const resultKicker = document.querySelector<HTMLElement>("#result-kicker")!;
 const resultTitle = document.querySelector<HTMLElement>("#result-title")!;
 const resultCopy = document.querySelector<HTMLElement>("#result-copy")!;
@@ -64,7 +76,7 @@ const endCopy = document.querySelector<HTMLElement>("#end-copy")!;
 const finalScore = document.querySelector<HTMLElement>("#final-score")!;
 const bestScore = document.querySelector<HTMLElement>("#best-score")!;
 
-if (!canvas || !loadingStatus || !startPanel || !orderPanel || !resultPanel || !endPanel || !controls || !startButton || !nextButton || !restartButton || !pourButton || !serveButton || !flowRange || !flowValue || !liveStatus || !scoreValue || !streakValue || !livesValue || !roundValue || !orderName || !tipValue || !fillTarget || !foamTarget || !fillMeter || !foamMeter || !fillMarker || !foamMarker || !orderHint || !resultKicker || !resultTitle || !resultCopy || !resultQuality || !resultPoints || !endTitle || !endCopy || !finalScore || !bestScore) {
+if (!canvas || !loadingStatus || !startPanel || !orderPanel || !rushPanel || !resultPanel || !endPanel || !controls || !startButton || !nextButton || !restartButton || !pourButton || !serveButton || !switchButton || !flowRange || !flowValue || !liveStatus || !scoreValue || !streakValue || !livesValue || !roundValue || !roundSuffix || !orderName || !tipValue || !fillTarget || !foamTarget || !fillMeter || !foamMeter || !fillMarker || !foamMarker || !orderHint || !rushName || !rushStatus || !resultKicker || !resultTitle || !resultCopy || !resultQuality || !resultPoints || !endTitle || !endCopy || !finalScore || !bestScore) {
   throw new Error("Perfect Pour could not find its interface.");
 }
 
@@ -84,12 +96,17 @@ let scene: Scene;
 let engine: Awaited<ReturnType<typeof EngineFactory.CreateAsync>>;
 let beer: Mesh;
 let foam: Mesh;
+let secondGlass: Mesh;
+let secondBeer: Mesh;
+let secondFoam: Mesh;
 let stream: Mesh;
 let streamTip: Mesh;
 let tapHandle: Mesh;
+const tapHandles: Mesh[] = [];
 let rim: Mesh;
 let glow: GlowLayer;
 const GLASS_X = 1.15;
+const SECOND_GLASS_X = 0.4;
 const GLASS_Z = 0.62;
 const GLASS_BASE_Y = 1.57;
 const SPOUT_Y = 3.42;
@@ -108,6 +125,23 @@ let judging = false;
 let roundTime = 0;
 let lastPourTone = 0;
 let audioContext: AudioContext | undefined;
+let tickets: BeerTicket[] = [];
+let activeTicket = 0;
+
+const isRushRound = (): boolean => activeOrder >= 3;
+
+function setSecondaryPintVisible(visible: boolean): void {
+  if (!scene) return;
+  if (secondGlass) secondGlass.isVisible = visible;
+  if (secondBeer) secondBeer.isVisible = visible;
+  if (secondFoam) secondFoam.isVisible = visible;
+  for (const mesh of scene.meshes) {
+    if (mesh.name.includes("secondary-")) {
+      mesh.isVisible = visible;
+      mesh.visibility = visible ? 1 : 0;
+    }
+  }
+}
 
 function material(name: string, color: Color3, sceneToUse: Scene, emissive?: Color3, alpha = 1): StandardMaterial {
   const result = new StandardMaterial(name, sceneToUse);
@@ -143,6 +177,50 @@ function cylinder(name: string, height: number, diameter: number, position: Vect
   mesh.position = position;
   mesh.material = mat;
   return mesh;
+}
+
+function createPintGlass(prefix: string, x: number, z: number, baseY: number, beerColor: Color3): { glass: Mesh; beer: Mesh; foam: Mesh; rim: Mesh } {
+  const glassMat = material(`${prefix}-glass`, new Color3(0.8, 0.94, 0.94), scene, undefined, 0.12);
+  glassMat.backFaceCulling = false;
+  glassMat.specularColor = Color3.White();
+  glassMat.specularPower = 130;
+  const glass = MeshBuilder.CreateLathe(`${prefix}-pint`, {
+    shape: [
+      new Vector3(0, 0, 0), new Vector3(0.36, 0, 0), new Vector3(0.42, 0.1, 0),
+      new Vector3(0.47, 1.16, 0), new Vector3(0.53, 1.26, 0), new Vector3(0.55, 1.34, 0),
+      new Vector3(0.55, 1.5, 0), new Vector3(0.52, 1.56, 0), new Vector3(0.49, 1.56, 0),
+      new Vector3(0.49, 1.47, 0), new Vector3(0.47, 1.34, 0), new Vector3(0.44, 1.23, 0),
+      new Vector3(0.39, 0.1, 0), new Vector3(0, 0.1, 0),
+    ], tessellation: 48,
+  }, scene);
+  glass.position = new Vector3(x, baseY, z);
+  glass.material = glassMat;
+  const edge = material(`${prefix}-glass-edge`, new Color3(0.73, 0.84, 0.82), scene, new Color3(0.12, 0.15, 0.14), 0.5);
+  const rim = MeshBuilder.CreateTorus(`${prefix}-rim`, { diameter: 1.07, thickness: 0.032, tessellation: 48 }, scene);
+  rim.position = new Vector3(x, baseY + 1.56, z);
+  rim.material = edge;
+  const shoulder = MeshBuilder.CreateTorus(`${prefix}-nonic-shoulder`, { diameter: 1.05, thickness: 0.026, tessellation: 48 }, scene);
+  shoulder.position = new Vector3(x, baseY + 1.27, z);
+  shoulder.material = edge;
+  const base = MeshBuilder.CreateTorus(`${prefix}-heavy-base`, { diameter: 0.82, thickness: 0.06, tessellation: 40 }, scene);
+  base.position = new Vector3(x, baseY + 0.04, z);
+  base.material = edge;
+  for (const side of [-1, 1]) {
+    pipe(`${prefix}-side-highlight-${side}`, [new Vector3(x + side * 0.4, baseY + 0.08, z + 0.1), new Vector3(x + side * 0.515, baseY + 1.5, z + 0.12)], 0.01, edge);
+  }
+  const beerMat = material(`${prefix}-beer`, beerColor, scene, beerColor.scale(0.09));
+  beerMat.specularPower = 95;
+  const beer = MeshBuilder.CreateCylinder(`${prefix}-liquid`, { height: 1.45, diameterTop: 1.0, diameterBottom: 0.76, tessellation: 48 }, scene);
+  beer.position = new Vector3(x, baseY + 0.075, z);
+  beer.scaling.y = 0.001;
+  beer.material = beerMat;
+  const foamMat = material(`${prefix}-foam`, new Color3(0.97, 0.93, 0.8), scene, new Color3(0.045, 0.04, 0.025));
+  foamMat.specularColor = new Color3(0.1, 0.09, 0.07);
+  const foam = MeshBuilder.CreateCylinder(`${prefix}-foam-head`, { height: 0.12, diameter: 0.99, tessellation: 48 }, scene);
+  foam.position = new Vector3(x, baseY + 0.09, z);
+  foam.scaling.y = 0.2;
+  foam.material = foamMat;
+  return { glass, beer, foam, rim };
 }
 
 function pipe(name: string, path: Vector3[], radius: number, mat: StandardMaterial): Mesh {
@@ -364,6 +442,7 @@ function makeScene(): void {
     pipe(`faucet-${i}`, [new Vector3(x, 3.54, -0.02), new Vector3(x, 3.54, 0.36), new Vector3(x, 3.5, 0.57), new Vector3(x, SPOUT_Y, GLASS_Z)], 0.059, chromeMat);
     cylinder(`handle-stem-${i}`, 0.17, 0.045, new Vector3(x, 3.62, 0.22), brassMat);
     const handle = cylinder(`tap-handle-${i}`, 0.36, 0.12, new Vector3(x, HANDLE_Y, 0.22), handleMats[i]);
+    tapHandles.push(handle);
     const badge = textureMaterial(`tap-badge-${i}`, 128, 128, (ctx) => {
       ctx.fillStyle = "#eee0bd"; ctx.fillRect(0, 0, 128, 128); ctx.fillStyle = "#254239";
       ctx.textAlign = "center"; ctx.font = "bold 44px Georgia"; ctx.fillText(String(i + 1).padStart(2, "0"), 64, 72);
@@ -375,38 +454,23 @@ function makeScene(): void {
   box("stainless-drip-tray", { width: 3.55, height: 0.035, depth: 0.87 }, new Vector3(0.76, 1.555, 0.46), chromeMat);
   for (let i = 0; i < 35; i++) box(`drip-tray-slot-${i}`, { width: 0.024, height: 0.005, depth: 0.69 }, new Vector3(-0.88 + i * 0.096, 1.575, 0.46), blackMat);
 
-  const glassMat = material("clear-pint-glass", new Color3(0.8, 0.94, 0.94), scene, undefined, 0.1);
-  glassMat.backFaceCulling = false;
-  glassMat.specularColor = Color3.White(); glassMat.specularPower = 130;
-  const glass = MeshBuilder.CreateLathe("open-pint-glass", { shape: [new Vector3(0, 0, 0), new Vector3(0.395, 0, 0), new Vector3(0.415, 0.08, 0), new Vector3(0.525, 1.55, 0), new Vector3(0.5, 1.55, 0), new Vector3(0.388, 0.085, 0), new Vector3(0, 0.085, 0)], tessellation: 48 }, scene);
-  glass.position = new Vector3(GLASS_X, GLASS_BASE_Y, GLASS_Z);
-  glass.material = glassMat;
-  const glassEdge = material("glass-edge-reflections", new Color3(0.73, 0.84, 0.82), scene, new Color3(0.12, 0.15, 0.14), 0.46);
-  rim = MeshBuilder.CreateTorus("glass-rim", { diameter: 1.025, thickness: 0.025, tessellation: 48 }, scene);
-  rim.position = new Vector3(GLASS_X, GLASS_BASE_Y + 1.55, GLASS_Z); rim.material = glassEdge;
-  const glassBase = MeshBuilder.CreateTorus("heavy-glass-base", { diameter: 0.78, thickness: 0.055, tessellation: 40 }, scene);
-  glassBase.position = new Vector3(GLASS_X, GLASS_BASE_Y + 0.04, GLASS_Z); glassBase.material = glassEdge;
-  for (const side of [-1, 1]) pipe(`pint-side-highlight-${side}`, [new Vector3(GLASS_X + side * 0.385, GLASS_BASE_Y + 0.08, GLASS_Z + 0.1), new Vector3(GLASS_X + side * 0.493, GLASS_BASE_Y + 1.5, GLASS_Z + 0.12)], 0.009, glassEdge);
-  const beerMaterial = material("beer", orders[0].color, scene, orders[0].color.scale(0.09));
-  beerMaterial.specularPower = 95;
-  beer = MeshBuilder.CreateCylinder("beer", { height: 1.45, diameterTop: 0.96, diameterBottom: 0.73, tessellation: 48 }, scene);
-  beer.position = new Vector3(GLASS_X, GLASS_BASE_Y + 0.075, GLASS_Z);
-  beer.scaling.y = 0.001;
-  beer.material = beerMaterial;
-  const foamMaterial = material("creamy-white-foam", new Color3(0.97, 0.93, 0.8), scene, new Color3(0.045, 0.04, 0.025));
-  foamMaterial.specularColor = new Color3(0.1, 0.09, 0.07);
-  foam = MeshBuilder.CreateCylinder("foam", { height: 0.12, diameter: 0.95, tessellation: 48 }, scene);
-  foam.position = new Vector3(GLASS_X, GLASS_BASE_Y + 0.09, GLASS_Z);
-  foam.scaling.y = 0.2;
-  foam.material = foamMaterial;
+  const primaryPint = createPintGlass("primary", GLASS_X, GLASS_Z, GLASS_BASE_Y, orders[0].color);
+  beer = primaryPint.beer;
+  foam = primaryPint.foam;
+  rim = primaryPint.rim;
+  const secondaryPint = createPintGlass("secondary", SECOND_GLASS_X, GLASS_Z, GLASS_BASE_Y, orders[1].color);
+  secondGlass = secondaryPint.glass;
+  secondBeer = secondaryPint.beer;
+  secondFoam = secondaryPint.foam;
+  setSecondaryPintVisible(false);
   stream = MeshBuilder.CreateCylinder("pour-stream", { height: 1, diameter: 0.064, tessellation: 12 }, scene);
   stream.position = new Vector3(GLASS_X, SPOUT_Y - 0.5, GLASS_Z);
-  stream.material = beerMaterial;
+  stream.material = beer.material;
   stream.isVisible = false;
   streamTip = MeshBuilder.CreateSphere("stream-tip", { diameter: 0.13, segments: 12 }, scene);
   streamTip.position = new Vector3(GLASS_X, GLASS_BASE_Y + 0.08, GLASS_Z);
   streamTip.scaling.y = 0.25;
-  streamTip.material = foamMaterial;
+  streamTip.material = foam.material;
   streamTip.isVisible = false;
   const bubbleMat = material("carbonation", new Color3(1, 0.91, 0.65), scene, new Color3(0.12, 0.09, 0.035), 0.55);
   for (let i = 0; i < 18; i++) {
@@ -416,6 +480,7 @@ function makeScene(): void {
   }
 
   // Water glasses, coasters, a bar towel and a small plant soften the work surface.
+  const glassEdge = material("bar-glass-edge", new Color3(0.73, 0.84, 0.82), scene, new Color3(0.12, 0.15, 0.14), 0.46);
   for (let i = 0; i < 5; i++) {
     const tumbler = MeshBuilder.CreateLathe(`backbar-water-glass-${i}`, { shape: [new Vector3(0, 0, 0), new Vector3(0.11, 0, 0), new Vector3(0.135, 0.31, 0), new Vector3(0.12, 0.31, 0), new Vector3(0.095, 0.03, 0), new Vector3(0, 0.03, 0)], tessellation: 16 }, scene);
     tumbler.position = new Vector3(1.5 + i * 0.3, 1.525, -2.32); tumbler.material = glassEdge;
@@ -458,7 +523,44 @@ function unlockAudio(): void {
   if (audioContext.state === "suspended") void audioContext.resume();
 }
 
-function currentOrder(): Order { return orders[activeOrder]; }
+function currentTicket(): BeerTicket { return tickets[activeTicket]; }
+function currentOrder(): Order { return currentTicket().order; }
+
+function setupTickets(): void {
+  tickets = [{ order: orders[activeOrder], fill: 0, foam: 0, served: false }];
+  if (isRushRound()) {
+    tickets.push({ order: orders[(activeOrder + 1) % orders.length], fill: 0, foam: 0, served: false });
+  }
+  activeTicket = 0;
+  setSecondaryPintVisible(isRushRound());
+}
+
+function saveActiveTicket(): void {
+  const ticket = tickets[activeTicket];
+  if (!ticket) return;
+  ticket.fill = fill;
+  ticket.foam = foamAmount;
+}
+
+function activeGlassX(): number { return activeTicket === 1 ? SECOND_GLASS_X : GLASS_X; }
+function activeTap(): Mesh { return tapHandles[activeTicket === 1 ? 1 : 2] ?? tapHandle; }
+
+function loadActiveTicket(): void {
+  const ticket = currentTicket();
+  fill = ticket.fill;
+  foamAmount = ticket.foam;
+  pouring = false;
+  judging = false;
+  roundTime = 0;
+  lastPourTone = 0;
+  setOrderColor();
+  stream.isVisible = false;
+  streamTip.isVisible = false;
+  for (const handle of tapHandles) handle.rotation.z = 0;
+  updateHud();
+  liveStatus.textContent = isRushRound() ? `Pint ${activeTicket + 1} of 2 is on the rail.` : "Dial in your flow, then hold the pour.";
+  pourButton.classList.remove("is-pouring");
+}
 
 function updateHud(): void {
   const order = currentOrder();
@@ -466,6 +568,7 @@ function updateHud(): void {
   streakValue.textContent = String(streak);
   livesValue.textContent = `${"●".repeat(lives)}${"○".repeat(Math.max(0, 3 - lives))}`;
   roundValue.textContent = String(activeOrder + 1).padStart(2, "0");
+  roundSuffix.textContent = isRushRound() ? `· Pint ${activeTicket + 1} / 2` : "/ 06";
   orderName.textContent = order.name;
   tipValue.textContent = order.tip;
   fillTarget.textContent = percent(order.targetFill);
@@ -476,32 +579,30 @@ function updateHud(): void {
   fillMarker.style.left = `${order.targetFill * 100}%`;
   foamMarker.style.left = `${clamp(order.targetFoam / 0.3, 0, 1) * 100}%`;
   flowValue.textContent = `${Math.round(flow * 100)}%`;
-  serveButton.disabled = fill < 0.32 || judging;
+  rushPanel.hidden = !isRushRound();
+  if (isRushRound()) {
+    const other = tickets[activeTicket === 0 ? 1 : 0];
+    rushName.textContent = other.order.name;
+    rushStatus.textContent = other.served ? "Served" : activeTicket === 0 ? "Waiting at the rail" : "Waiting for your pour";
+    switchButton.textContent = activeTicket === 0 ? "Switch pint" : "Back to first";
+    switchButton.disabled = judging || other.served;
+  }
+  serveButton.disabled = fill < 0.32 || judging || currentTicket().served;
 }
 
 function setOrderColor(): void {
-  const order = currentOrder();
-  const beerMaterial = beer.material as StandardMaterial;
-  beerMaterial.diffuseColor = order.color;
-  beerMaterial.emissiveColor = order.color.scale(0.09);
+  const primaryOrder = tickets[0]?.order ?? orders[activeOrder];
+  const secondaryOrder = tickets[1]?.order ?? orders[(activeOrder + 1) % orders.length];
+  const primaryMaterial = beer.material as StandardMaterial;
+  const secondaryMaterial = secondBeer.material as StandardMaterial;
+  primaryMaterial.diffuseColor = primaryOrder.color;
+  primaryMaterial.emissiveColor = primaryOrder.color.scale(0.09);
+  secondaryMaterial.diffuseColor = secondaryOrder.color;
+  secondaryMaterial.emissiveColor = secondaryOrder.color.scale(0.09);
 }
 
 function resetOrder(): void {
-  fill = 0;
-  foamAmount = 0;
-  pouring = false;
-  judging = false;
-  roundTime = 0;
-  lastPourTone = 0;
-  setOrderColor();
-  stream.isVisible = false;
-  streamTip.isVisible = false;
-  tapHandle.rotation.z = 0;
-  beer.scaling.y = 0.001;
-  foam.scaling.y = 0.2;
-  updateHud();
-  liveStatus.textContent = "Dial in your flow, then hold the pour.";
-  pourButton.classList.remove("is-pouring");
+  loadActiveTicket();
 }
 
 function startShift(): void {
@@ -517,17 +618,19 @@ function startShift(): void {
   resultPanel.hidden = true;
   orderPanel.hidden = false;
   controls.hidden = false;
+  setupTickets();
   resetOrder();
 }
 
 function startPour(): void {
-  if (!shiftStarted || judging || fill >= 1.05) return;
+  if (!shiftStarted || judging || currentTicket().served || fill >= 1.05) return;
   unlockAudio();
   pouring = true;
   pourButton.classList.add("is-pouring");
   stream.isVisible = true;
   streamTip.isVisible = true;
-  tapHandle.rotation.z = -0.38;
+  stream.material = (activeTicket === 1 ? secondBeer : beer).material;
+  activeTap().rotation.z = -0.38;
   liveStatus.textContent = "Keep the crown under control…";
 }
 
@@ -536,12 +639,19 @@ function stopPour(): void {
   pourButton.classList.remove("is-pouring");
   stream.isVisible = false;
   streamTip.isVisible = false;
-  tapHandle.rotation.z = 0;
+  activeTap().rotation.z = 0;
   if (!judging && fill >= 0.32) liveStatus.textContent = "Looks close. Serve it—or risk a better pour.";
 }
 
+function switchTicket(): void {
+  if (!isRushRound() || judging || tickets.length < 2) return;
+  saveActiveTicket();
+  activeTicket = activeTicket === 0 ? 1 : 0;
+  loadActiveTicket();
+}
+
 function judgeOrder(): void {
-  if (!shiftStarted || judging || fill < 0.32) return;
+  if (!shiftStarted || judging || currentTicket().served || fill < 0.32) return;
   stopPour();
   judging = true;
   const order = currentOrder();
@@ -572,17 +682,29 @@ function judgeOrder(): void {
   }
   resultQuality.textContent = `Quality ${quality}%`;
   resultPoints.textContent = points > 0 ? `+${points.toLocaleString()}` : "No tip";
+  saveActiveTicket();
+  currentTicket().served = true;
+  nextButton.innerHTML = tickets.some((ticket) => !ticket.served) ? "Switch to next pint <span>→</span>" : "Next order <span>→</span>";
   updateHud();
   resultPanel.hidden = false;
   controls.hidden = true;
 }
 
 function nextOrder(): void {
+  const pendingTicket = tickets.findIndex((ticket) => !ticket.served);
+  if (pendingTicket >= 0 && lives > 0) {
+    activeTicket = pendingTicket;
+    resultPanel.hidden = true;
+    controls.hidden = false;
+    loadActiveTicket();
+    return;
+  }
   if (activeOrder >= orders.length - 1 || lives <= 0) {
     finishShift();
     return;
   }
   activeOrder += 1;
+  setupTickets();
   resultPanel.hidden = true;
   controls.hidden = false;
   resetOrder();
@@ -608,6 +730,17 @@ function finishShift(): void {
   }
 }
 
+function updateLiquidMesh(liquid: Mesh, head: Mesh, liquidFill: number, headFoam: number, x: number): void {
+  const beerHeight = 1.45 * clamp(liquidFill, 0.001, 1);
+  liquid.scaling.y = clamp(liquidFill, 0.001, 1.08);
+  liquid.position.x = x;
+  liquid.position.y = GLASS_BASE_Y + 0.075 + beerHeight / 2;
+  const foamHeight = 0.12 * clamp(headFoam / 0.19, 0.18, 1.35);
+  head.scaling.y = foamHeight / 0.12;
+  head.position.x = x;
+  head.position.y = GLASS_BASE_Y + 0.075 + beerHeight + foamHeight / 2;
+}
+
 function updateScene(deltaSeconds: number, timeSeconds: number): void {
   if (!scene) return;
   if (shiftStarted && !judging) {
@@ -631,24 +764,31 @@ function updateScene(deltaSeconds: number, timeSeconds: number): void {
       liveStatus.textContent = "The customer is tapping the bar.";
       judgeOrder();
     }
-    const beerHeight = 1.45 * clamp(fill, 0.001, 1);
-    beer.scaling.y = clamp(fill, 0.001, 1.08);
-    beer.position.y = GLASS_BASE_Y + 0.075 + beerHeight / 2;
-    const foamHeight = 0.12 * clamp(foamAmount / 0.19, 0.18, 1.35);
-    foam.scaling.y = foamHeight / 0.12;
-    foam.position.y = GLASS_BASE_Y + 0.075 + beerHeight + foamHeight / 2;
-    const liquidSurface = GLASS_BASE_Y + 0.075 + beerHeight + foamHeight;
-    stream.scaling.y = Math.max(0.08, SPOUT_Y - liquidSurface);
-    stream.scaling.x = 0.65 + flow * 0.7;
-    stream.scaling.z = stream.scaling.x;
-    stream.position.y = (SPOUT_Y + liquidSurface) / 2;
-    streamTip.position.y = liquidSurface + Math.sin(timeSeconds * 16) * 0.009;
+    saveActiveTicket();
     updateHud();
   }
+  const primary = tickets[0];
+  const secondary = tickets[1];
+  updateLiquidMesh(beer, foam, primary?.fill ?? 0, primary?.foam ?? 0, GLASS_X);
+  updateLiquidMesh(secondBeer, secondFoam, secondary?.fill ?? 0, secondary?.foam ?? 0, SECOND_GLASS_X);
+  const activeBeer = activeTicket === 1 ? secondBeer : beer;
+  const activeFill = activeTicket === 1 ? secondary?.fill ?? fill : primary?.fill ?? fill;
+  const activeFoam = activeTicket === 1 ? secondary?.foam ?? foamAmount : primary?.foam ?? foamAmount;
+  const beerHeight = 1.45 * clamp(activeFill, 0.001, 1);
+  const foamHeight = 0.12 * clamp(activeFoam / 0.19, 0.18, 1.35);
+  const liquidSurface = GLASS_BASE_Y + 0.075 + beerHeight + foamHeight;
+  stream.material = activeBeer.material;
+  stream.position.x = activeGlassX();
+  streamTip.position.x = activeGlassX();
+  stream.scaling.y = Math.max(0.08, SPOUT_Y - liquidSurface);
+  stream.scaling.x = 0.65 + flow * 0.7;
+  stream.scaling.z = stream.scaling.x;
+  stream.position.y = (SPOUT_Y + liquidSurface) / 2;
+  streamTip.position.y = liquidSurface + Math.sin(timeSeconds * 16) * 0.009;
   rim.rotation.y = Math.sin(timeSeconds * 0.25) * 0.012;
   for (let i = 0; i < bubbles.length; i++) {
     const bubble = bubbles[i];
-    bubble.isVisible = fill > 0.08;
+    bubble.isVisible = activeTicket === 0 && fill > 0.08;
     bubble.position.y = GLASS_BASE_Y + 0.1 + ((timeSeconds * 0.12 + i * 0.063) % Math.max(0.01, 1.4 * Math.min(fill, 1)));
   }
 }
@@ -680,6 +820,7 @@ async function start(): Promise<void> {
   pourButton.addEventListener("pointerup", stopPour);
   pourButton.addEventListener("pointercancel", stopPour);
   serveButton.addEventListener("click", judgeOrder);
+  switchButton.addEventListener("click", switchTicket);
   document.addEventListener("keydown", (event) => {
     if (event.code === "Space" || event.code === "ArrowDown") {
       event.preventDefault();

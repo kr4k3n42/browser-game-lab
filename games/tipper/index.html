@@ -37,7 +37,7 @@
         <section id="order-panel" class="order-panel" hidden>
           <div class="order-heading">
             <div>
-              <p class="eyebrow">Order <span id="round-value">01</span> / 06</p>
+              <p class="eyebrow">Order <span id="round-value">01</span> <span id="round-suffix">/ 06</span></p>
               <h2 id="order-name">House Lager</h2>
             </div>
             <div class="order-tip"><span>Tip</span><strong id="tip-value">$2.00</strong></div>
@@ -47,6 +47,15 @@
             <div class="target-row"><span>Foam crown</span><strong id="foam-target">12%</strong><div class="target-track foam-track"><i id="foam-meter"></i><b id="foam-marker"></b></div></div>
           </div>
           <p id="order-hint" class="order-hint">A clean, confident pour. Don't rush the crown.</p>
+        </section>
+
+        <section id="rush-panel" class="rush-panel" hidden aria-live="polite">
+          <div>
+            <p class="eyebrow">Rush ticket</p>
+            <strong id="rush-name">Second pint</strong>
+            <span id="rush-status">Waiting at the rail</span>
+          </div>
+          <button id="switch-button" class="switch-button" type="button">Switch pint</button>
         </section>
 
         <section id="result-panel" class="glass-panel result-panel" hidden>
