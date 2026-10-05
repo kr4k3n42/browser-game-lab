@@ -1,4 +1,4 @@
-import { Engine, Scene, FreeCamera, Vector3, Quaternion, Matrix, Color3, Color4, MeshBuilder, StandardMaterial, HemisphericLight, TransformNode } from '@babylonjs/core';
+import { Engine, Scene, FreeCamera, Vector3, Quaternion, Matrix, Color3, Color4, MeshBuilder, StandardMaterial, HemisphericLight, DirectionalLight, TransformNode } from '@babylonjs/core';
 import './style.css';
 import { createAstronautBody } from './body';
 import { createMobileControls } from './mobile';
@@ -8,25 +8,42 @@ const canvas=document.querySelector<HTMLCanvasElement>('#flight')!;
 const engine=new Engine(canvas,true),scene=new Scene(engine);
 scene.clearColor=new Color4(.003,.006,.015,1);
 const camera=new FreeCamera('eyes',Vector3.Zero(),scene);camera.inputs.clear();camera.minZ=.03;camera.fov=1.15;
-new HemisphericLight('ambient',new Vector3(0,1,0),scene).intensity=.8;
+camera.updateUpVectorFromRotation=true;
+new HemisphericLight('ambient',new Vector3(0,1,0),scene).intensity=.18;
+const sunDirection=new Vector3(-.35,.75,.55).normalize();
+const sunlight=new DirectionalLight('system-sun',sunDirection.scale(-1),scene);
+sunlight.diffuse=new Color3(1,.94,.82);sunlight.intensity=1.4;
 function mat(name:string,color:string,glow=false){const m=new StandardMaterial(name,scene);m.diffuseColor=Color3.FromHexString(color);if(glow)m.emissiveColor=m.diffuseColor;return m;}
 const metal=mat('metal','#263a48'),white=mat('gloves','#d3d9db'),cyan=mat('cyan','#69efd4',true),gold=mat('gold','#efb75d',true);
+metal.specularColor=new Color3(.09,.11,.12);metal.specularPower=12;
 let seed=73;function rand(){seed=(seed*16807)%2147483647;return seed/2147483647;}
 const starWhite=mat('star-white','#d5e6ff',true),starBlue=mat('star-blue','#8cbcff',true),starWarm=mat('star-warm','#ffd6a1',true);
+const starMaterials=[starWhite,starBlue,starWarm].flatMap((source,i)=>[.22,.45,.75,1].map((brightness,j)=>{
+  const material=new StandardMaterial(`star-${i}-brightness-${j}`,scene);
+  material.disableLighting=true;material.emissiveColor=source.emissiveColor.scale(brightness);
+  material.specularColor=Color3.Black();return material;
+}));
 const starShell=new TransformNode('distant-stars',scene);
+const sun=MeshBuilder.CreateSphere('visible-system-sun',{diameter:5,segments:24},scene);
+sun.parent=starShell;sun.position=sunDirection.scale(450);sun.isPickable=false;
+const sunMaterial=new StandardMaterial('sun-emission',scene);sunMaterial.disableLighting=true;
+sunMaterial.emissiveColor=new Color3(1,.96,.82);sun.material=sunMaterial;
 function star(direction:Vector3,size:number,index:number){
   const mesh=MeshBuilder.CreateSphere('star-'+index,{diameter:size,segments:4},scene);
   mesh.parent=starShell;mesh.position=direction.normalize().scale(450);
-  mesh.material=[starWhite,starBlue,starWarm][index%3];mesh.isPickable=false;
+  mesh.material=starMaterials[(index%3)*4+(size>=.6?3:Math.floor(rand()*4))];mesh.isPickable=false;
 }
-for(let i=0;i<900;i++){
+for(let i=0;i<1800;i++){
   const y=rand()*2-1,angle=rand()*Math.PI*2,r=Math.sqrt(1-y*y);
-  star(new Vector3(r*Math.cos(angle),y,r*Math.sin(angle)),i%23===0?.65:.14+rand()*.22,i);
+  const category=rand();
+  const size=category>.985?.9+rand()*.5:category>.9?.4+rand()*.3:.12+rand()*.25;
+  star(new Vector3(r*Math.cos(angle),y,r*Math.sin(angle)),size,i);
 }
 // Distinct clusters provide rotational landmarks without drawing a navigation grid.
 for(let i=0;i<7;i++)star(new Vector3(-.5+i*.065,.32+Math.sin(i*1.3)*.08,1),.7,1000+i);
 for(let i=0;i<5;i++)star(new Vector3(.7+Math.sin(i)*.08,-.12+i*.055,1),.6,1100+i);
 const planet=MeshBuilder.CreateSphere('planet',{diameter:100,segments:48},scene);planet.position.set(90,-65,160);planet.material=mat('planet blue','#17496a');
+(planet.material as StandardMaterial).specularColor=Color3.Black();
 const positions=[new Vector3(0,0,12),new Vector3(10,4,22),new Vector3(-5,-3,32)];
 const anchors=positions.map((p,i)=>{const root=new TransformNode('anchor'+i,scene);root.position=p.clone();const box=MeshBuilder.CreateBox('platform',{width:3,height:.3+i*.45,depth:3},scene);box.parent=root;box.position.y=-1-i*.225;box.material=metal;const ring=MeshBuilder.CreateTorus('handhold',{diameter:1.4,thickness:.13},scene);ring.parent=root;ring.rotation.x=Math.PI/2;ring.material=cyan;return ring;});
 const cargo=anchors.map((ring,i)=>({root:ring.parent as TransformNode, mass:180+i*100, velocity:Vector3.Zero(), spin:Vector3.Zero(), orientation:Quaternion.Identity(), visited:false}));
