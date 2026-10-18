@@ -4,6 +4,7 @@ import { createAstronautBody } from './body';
 import { createMobileControls } from './mobile';
 import { addWristRockets } from './rockets';
 import { createPlanetSystem } from './planets';
+import { launchMomentum } from './recoil';
 import { boxContact, ringContact, boxesContact, collisionImpulse } from './collision';
 
 const canvas=document.querySelector<HTMLCanvasElement>('#flight')!;
@@ -377,6 +378,16 @@ const wristRockets=addWristRockets(scene,camera,hands.map(h=>h.hand),planetSyste
   const marker=beacons[0].cloneNode(true) as HTMLDivElement;
   marker.classList.remove('attached-beacon');marker.querySelector('.beacon-name')!.textContent=formatMass(fragment.mass);
   marker.title='Planet fragment · '+formatMass(fragment.mass);navigation.append(marker);beacons.push(marker);
+},direction=>{
+  if(held<0){
+    const launch=launchMomentum(velocity,direction,astronautMass);
+    velocity.copyFrom(launch.carrierVelocity);return launch.rocketVelocity;
+  }
+  const c=cargo[held],launch=launchMomentum(c.velocity,direction,astronautMass+c.mass);
+  const pointVelocity=velocity.subtract(c.velocity);
+  c.velocity.copyFrom(launch.carrierVelocity);
+  velocity=c.velocity.add(pointVelocity);
+  return launch.rocketVelocity.add(pointVelocity);
 });
 button.addEventListener('click',()=>wristRockets.reset());
 window.addEventListener('keydown',event=>{if(event.code==='KeyR'&&active&&!paused&&!event.repeat)wristRockets.reset();});
