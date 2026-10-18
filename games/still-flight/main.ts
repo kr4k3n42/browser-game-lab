@@ -360,11 +360,10 @@ function clearPlanetDebris(){
   cargo.splice(3).forEach(c=>c.root.dispose());beacons.splice(3).forEach(marker=>marker.remove());
 }
 button.addEventListener('click',clearPlanetDebris,true);
-window.addEventListener('keydown',event=>{if(event.code==='KeyR'&&active&&!paused&&!event.repeat)clearPlanetDebris();},true);
 function clear(){if(held>=0&&!latched)releaseGrip();keys.clear();mouseButtons.clear();looking=false;diagnostics=false;}
 function reset(){position=Vector3.Zero();velocity=Vector3.Zero();angular=Vector3.Zero();body=Quaternion.Identity();headX=headY=0;checkpoint=0;attached=false;held=-1;latched=false;diagnostics=false;cargo.forEach((c,i)=>{c.root.position.copyFrom(positions[i]);c.velocity.setAll(0);c.spin.setAll(0);c.orientation=Quaternion.Identity();c.root.rotationQuaternion=c.orientation;c.visited=false;anchors[i].material=cyan;});clear();message.textContent='Approach anchor 1 below 1 m/s. Hold Space within 2.5 m.';}
 button.onclick=()=>{active=true;paused=false;document.body.classList.add('running');button.textContent='RESET PRACTICE';reset();};
-window.addEventListener('keydown',e=>{if(['Space','Enter','NumpadEnter','ControlLeft','ControlRight','Tab','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code))e.preventDefault();if(!active)return;if(e.code==='Escape'&&!e.repeat){paused=!paused;clear();button.textContent=paused?'RESUME (ESC)':'RESET PRACTICE';}if(paused)return;if(e.code==='KeyR'&&!e.repeat)reset();if(e.code==='Tab')diagnostics=true;if(e.code==='Space'&&!e.repeat)grab();if((e.code==='Enter'||e.code==='NumpadEnter')&&!e.repeat){if(latched)releaseGrip();else{if(held<0)grab();if(held>=0){latched=true;message.textContent='Anchor latched. Enter detaches; Space can be released.';}}}keys.add(e.code);});
+window.addEventListener('keydown',e=>{if(['Space','Enter','NumpadEnter','ControlLeft','ControlRight','Tab','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code))e.preventDefault();if(!active)return;if(e.code==='Escape'&&!e.repeat){paused=!paused;clear();button.textContent=paused?'RESUME (ESC)':'RESET PRACTICE';}if(paused)return;if(e.code==='Tab')diagnostics=true;if(e.code==='Space'&&!e.repeat)grab();if((e.code==='Enter'||e.code==='NumpadEnter')&&!e.repeat){if(latched)releaseGrip();else{if(held<0)grab();if(held>=0){latched=true;message.textContent='Anchor latched. Enter detaches; Space can be released.';}}}keys.add(e.code);});
 window.addEventListener('keyup',e=>{keys.delete(e.code);if(e.code==='Tab')diagnostics=false;if(e.code==='Space'&&held>=0&&!latched)releaseGrip();});window.addEventListener('blur',()=>{clear();paused=true;});document.addEventListener('visibilitychange',()=>{if(document.hidden){clear();paused=true;}});
 canvas.addEventListener('contextmenu',e=>e.preventDefault());canvas.addEventListener('pointerdown',e=>{if((e.button===0||e.button===2)&&active&&!paused){mouseButtons.add(e.button);looking=true;canvas.setPointerCapture(e.pointerId);}});canvas.addEventListener('pointermove',e=>{if(!looking)return;headY=Math.max(-1.05,Math.min(1.05,headY+e.movementX*.004));headX=Math.max(-.61,Math.min(.61,headX+e.movementY*.004));});window.addEventListener('pointerup',e=>{mouseButtons.delete(e.button);looking=mouseButtons.size>0;});canvas.addEventListener('pointercancel',()=>{mouseButtons.clear();looking=false;});
 const mobileControls=createMobileControls({
@@ -390,7 +389,11 @@ const wristRockets=addWristRockets(scene,camera,hands.map(h=>h.hand),planetSyste
   return launch.rocketVelocity.add(pointVelocity);
 });
 button.addEventListener('click',()=>wristRockets.reset());
-window.addEventListener('keydown',event=>{if(event.code==='KeyR'&&active&&!paused&&!event.repeat)wristRockets.reset();});
+window.addEventListener('keydown',event=>{
+  if(event.code!=='KeyR'||event.repeat||event.ctrlKey||event.metaKey||event.altKey)return;
+  if(event.target instanceof HTMLElement&&event.target.closest('input,textarea,[contenteditable="true"]'))return;
+  event.preventDefault();navigation.hidden=!navigation.hidden;
+});
 engine.runRenderLoop(()=>{
 const dt=Math.min(engine.getDeltaTime()/1000,.04);
 let thrust=Vector3.Zero(),turn=Vector3.Zero();
