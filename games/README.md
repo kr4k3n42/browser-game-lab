@@ -4,6 +4,8 @@ Each directory in this folder is an independent game project.
 
 ## Current games
 
+- `afterglow/` — Afterglow, a surreal first-person story maze.
+
 - `tipper/` — Perfect Pour, a tactile timing and precision game about serving
   beautiful drinks under pressure.
 - `first-showcase/` — First Light, the atmospheric framework prototype.

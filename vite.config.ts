@@ -6,6 +6,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         hub: "index.html",
+        afterglow: "games/afterglow/index.html",
         firstShowcase: "games/first-showcase/index.html",
         tipper: "games/tipper/index.html",
         stillFlight: "games/still-flight/index.html",

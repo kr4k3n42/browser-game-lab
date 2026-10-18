@@ -16,7 +16,10 @@ npm install
 npm run dev
 ```
 
-Open the local URL shown by Vite, then choose **Perfect Pour** from the hub.
+Open the local URL shown by Vite, then choose **Afterglow** or **Perfect Pour** from the hub.
+
+For Afterglow development and the handoff guide for Wyatt, see
+[`games/afterglow/README.md`](games/afterglow/README.md).
 
 ## Repository map
 
