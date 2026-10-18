@@ -40,6 +40,7 @@ kbd.pressed{background:#91e9df;color:#06131a;box-shadow:0 0 16px #91e9df55}
 /* Opaque outer mask prevents the world showing beyond the curved faceplate. */
 #helmet{box-shadow:0 0 0 100vmax #000,inset 0 0 100px 35px #0009}
 #edge-navigation{position:fixed;inset:0;pointer-events:none}
+#edge-navigation[hidden]{display:none}
 .edge-beacon{position:absolute;width:0;height:0;color:#86eddb;text-shadow:0 0 8px #43dacb}
 .edge-beacon[hidden]{display:none}
 .beacon-chevron{position:absolute;left:-10px;top:-18px;width:20px;height:36px;font:32px/36px system-ui;text-align:center}
