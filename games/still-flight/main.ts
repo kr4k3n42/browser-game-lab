@@ -5,6 +5,7 @@ import { createMobileControls } from './mobile';
 import { addWristRockets } from './rockets';
 import { createPlanetSystem, updatePlanetRotation } from './planets';
 import { launchMomentum } from './recoil';
+import { createFlightTutorial } from './tutorial';
 import { boxContact, ringContact, boxesContact, collisionImpulse } from './collision';
 
 const canvas=document.querySelector<HTMLCanvasElement>('#flight')!;
@@ -375,12 +376,19 @@ const mobileControls=createMobileControls({
   release:()=>{if(held>=0&&!latched)releaseGrip();}
 });
 canvas.addEventListener('pointerdown',event=>{if(mobileControls.state.mobile&&event.pointerType==='touch')event.stopImmediatePropagation();},true);
+const flightTutorial=createFlightTutorial(mobileControls.state.mobile,()=>{
+  const target=cargo[0];target.root.position.copyFrom(position.add(rotate(new Vector3(0,0,4),body)));
+  target.velocity.setAll(0);target.spin.setAll(0);target.orientation=body.clone();target.root.rotationQuaternion=target.orientation;
+  velocity.setAll(0);angular.setAll(0);
+});
+button.addEventListener('click',()=>flightTutorial.start());
 const wristRockets=addWristRockets(scene,camera,hands.map(h=>h.hand),planetSystem,()=>active&&!paused,fragment=>{
   cargo.push(fragment);
   const marker=beacons[0].cloneNode(true) as HTMLDivElement;
   marker.classList.remove('attached-beacon');marker.querySelector('.beacon-name')!.textContent=formatMass(fragment.mass);
   marker.title='Planet fragment · '+formatMass(fragment.mass);navigation.append(marker);beacons.push(marker);
 },direction=>{
+  flightTutorial.recordShot();
   if(held<0){
     const launch=launchMomentum(velocity,direction,astronautMass);
     velocity.copyFrom(launch.carrierVelocity);return launch.rocketVelocity;
@@ -463,6 +471,7 @@ suit.position.copyFrom(position);suit.rotationQuaternion=body;camera.position.co
 hands.forEach((h,i)=>{const engaged=i===0?thrust.length()>0:turn.length()>0;h.light.setEnabled(engaged||braking);h.hand.position.set((i===0?-.36:.36)+(i===0?thrust.x*.08:0),-.3+(i===0?thrust.y*.08:0),.65+(i===0?thrust.z*.08:0));h.hand.rotation.set(i===1?turn.x*.3:0,i===1?turn.y*.3:0,i===1?turn.z*.3:0);h.fingers.forEach((f,j)=>f.rotation.x=braking?1.4:engaged&&j===0?.85:0);h.thumb.rotation.y=engaged||braking?(i===0?-.7:.7):0;});reassurance.hidden=!diagnostics;
 updateBody();
 updateNavigation();
+flightTutorial.update(dt,{active,paused,speed:velocity.length(),spin:angular.length(),thrust:thrust.length(),braking,held:held>=0});
 if(active&&!paused)updatePlanetRotation(planetSystem,dt);
 const nextCargo=cargo.find(c=>!c.visited);const distance=nextCargo?Vector3.Distance(position,nextCargo.root.position):0;goal.textContent=checkpoint===3?'ALL ANCHORS VISITED':`ANCHOR ${checkpoint+1} / 3 · ${distance.toFixed(1)} m`;telemetry.textContent=`${paused?'PAUSED · ESC TO RESUME':attached?`${latched?'ANCHORED':'GRIPPING'} · ${cargo[held].mass+astronautMass} kg`:'FREE DRIFT'} | ${velocity.length().toFixed(2)} m/s | ${(angular.length()*180/Math.PI).toFixed(1)} °/s`;const reachable=cargo.some(c=>Vector3.Distance(position,c.root.position)<2.5&&velocity.subtract(c.velocity).length()<1);gesture.textContent=attached?(latched?'ENTER · DETACH ANCHOR':'RELEASE SPACE · LET GO / ENTER · ANCHOR'):reachable?'HOLD SPACE · GRAB / ENTER · ANCHOR':diagnostics?'PALM DISPLAY · FLIGHT DISENGAGED':braking?'BOTH FISTS · STABILIZING':thrust.length()||turn.length()?'PINCH ENGAGED · THRUST ACTIVE':looking?'HEAD GLANCE HELD':'HANDS NEUTRAL · THRUST OFF';scene.render();});
 window.addEventListener('resize',()=>engine.resize());
