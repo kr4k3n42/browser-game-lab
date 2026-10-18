@@ -3,22 +3,24 @@ export function createFlightTutorial(mobile:boolean,prepareGrab:()=>void){
   const panel=document.createElement('section');panel.id='flight-tutorial';panel.setAttribute('aria-label','Suit computer flight lesson');
   panel.innerHTML='<div class="tutorial-heading">SUIT COMPUTER · FIRST FLIGHT</div><p class="tutorial-copy"></p><span class="tutorial-accessible" aria-live="polite"></span><div class="tutorial-actions"><button class="tutorial-skip">SKIP LESSON</button><button class="tutorial-replay">REPLAY LESSON</button></div>';
   document.body.append(panel);
+  const controls=panel.querySelector<HTMLElement>('.tutorial-actions')!;
+  controls.id='tutorial-controls';document.body.append(controls);
   const copy=panel.querySelector<HTMLElement>('.tutorial-copy')!,accessible=panel.querySelector<HTMLElement>('.tutorial-accessible')!;
-  const replay=panel.querySelector<HTMLButtonElement>('.tutorial-replay')!,skip=panel.querySelector<HTMLButtonElement>('.tutorial-skip')!;
+  const replay=controls.querySelector<HTMLButtonElement>('.tutorial-replay')!,skip=controls.querySelector<HTMLButtonElement>('.tutorial-skip')!;
   const messages=[
-    mobile?'Suit online. Hold your phone comfortably in landscape. Tap ENABLE TILT / START to calibrate. I will handle the introductions. You handle the breathing.':'Suit online. Welcome back, pilot. Select BEGIN PRACTICE for a systems check. Space is large; we shall start small.',
-    mobile?'Propulsion check. Tilt gently forward or back to thrust. Tilt sideways to strafe; hold UP or DOWN for vertical thrust. Return to neutral and notice: you keep drifting.':'Propulsion check. Hold W to thrust forward, X to reverse, A/D to strafe, or Z/C to move headward/footward. Release the key. The jets stop; your drift does not.',
-    mobile?'Nicely done. Now hold STABILIZE until your drift and spin settle. The gauges return to teal. Braking is a thruster action, not a request to physics.':'Nicely done. Now hold S to stabilize until your drift and spin settle. The gauges return to teal. Braking is a thruster action, not a request to physics.',
-    mobile?'Handhold check. I have placed a training ring just ahead. Approach gently, stabilize below 1 m/s, then hold GRAB within 2.5 m. A gold ring confirms contact.':'Handhold check. I have placed a training ring just ahead. Approach gently with W, brake with S, then hold Space within 2.5 m below 1 m/s. A gold ring confirms contact.',
-    mobile?'Grip confirmed. You now move the combined mass. Release GRAB to let go; tap ANCHOR to latch hands-free, then tap it again to detach. Detach when ready.':'Grip confirmed. You now move the combined mass. Release Space to let go; Enter latches hands-free, and Enter again detaches. Detach when ready.',
-    mobile?'Weapons check. Aim the center crosshair at the training ring and tap FIRE. It is indestructible; the rocket pushes it. Expect a small kick backward.':'Weapons check. Arrow keys aim the suit; Q/E roll it. Hold either mouse button to glance, release to center. Aim at the ring and press F or click FIRE. It survives; recoil moves you backward.',
-    'Systems check complete. You can fly, stabilize, grip, and fire. Planets produce debris when destroyed; fragments can be gripped or destroyed. You are cleared for free flight. Please leave some universe for the next pilot.'
+    mobile?'Oh, thank goodness. You are awake. I have been attempting that for rather a long time. Your silence was becoming a performance review. Hold the phone sideways; tap ENABLE TILT / START. Let us establish that you can still operate a body.':'Oh, thank goodness. You are awake. I have been attempting that for rather a long time. Your silence was becoming a performance review. Select BEGIN PRACTICE. Let us establish that you can still operate a body.',
+    mobile?'No, I cannot yet tell you what happened. First, propulsion: tilt forward/back to thrust, sideways to strafe. UP/DOWN fires vertical jets. Return to neutral: thrust stops, drift continues. Space has declined to install brakes.':'No, I cannot yet tell you what happened. First, propulsion: W/X forward/reverse, A/D sideways, Z/C headward/footward. Hold to thrust; release to coast. Space has declined to install brakes.',
+    mobile?'Excellent. You have successfully gone somewhere. Hold STABILIZE until your drift and spin settle and the gauges return to teal. Panic is understandable, but has an appalling thrust-to-weight ratio.':'Excellent. You have successfully gone somewhere. Hold S until your drift and spin settle and the gauges return to teal. Panic is understandable, but has an appalling thrust-to-weight ratio.',
+    mobile?'A training ring, just ahead. Something dependable. How novel. Approach gently; brake below 1 m/s. Within 2.5 m, hold GRAB. Gold means you are holding it, not that your financial situation has improved.':'A training ring, just ahead. Something dependable. How novel. Approach with W; use S to brake below 1 m/s. Within 2.5 m, hold Space. Gold means contact, not that your financial situation has improved.',
+    mobile?'Contact confirmed. Your jets now move both masses. Release GRAB to let go. ANCHOR latches hands-free; tap again to detach. Detach when ready. I would applaud, but you are wearing my hands.':'Contact confirmed. Your jets now move both masses. Release Space to let go. Enter latches hands-free; Enter again detaches. Detach when ready. I would applaud, but you are wearing my hands.',
+    mobile?'Aim the crosshair at the ring and tap FIRE. The ring survives; the rocket pushes it. Recoil nudges you backward. Yes, someone gave the unconscious passenger rockets. I have filed a concern.':'Arrow keys aim; Q/E roll. Hold either mouse button to glance, release to center. Aim at the ring; press F or click FIRE. It survives, but moves. Recoil nudges you backward. Rockets for the unconscious passenger. Inspired procurement.',
+    'You are operational. A considerable improvement on our previous arrangement. Eventually: discover what happened, find a way home. For now, free flight in this sandbox. Planets shed debris; fragments can be gripped or destroyed. Do try to remain awake.'
   ];
-  let step=0,elapsed=0,hold=0,typed=0,shots=0,shotBaseline=0,finished=false;
+  let step=0,elapsed=0,hold=0,typed=0,shots=0,shotBaseline=0,finished=false,completionTime=0;
   const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
-  function enter(next:number){step=next;elapsed=hold=typed=0;copy.textContent='';accessible.textContent=messages[step];shotBaseline=shots;skip.hidden=step===6;replay.hidden=step!==6;}
+  function enter(next:number){step=next;elapsed=hold=typed=completionTime=0;panel.style.opacity='1';panel.style.pointerEvents='';copy.textContent='';accessible.textContent=messages[step];shotBaseline=shots;skip.hidden=step===6;replay.hidden=step!==6;}
   function start(){finished=false;panel.hidden=false;enter(1);}
-  skip.onclick=()=>{finished=true;panel.hidden=true;};
+  skip.onclick=()=>{finished=true;panel.hidden=true;skip.hidden=true;replay.hidden=false;};
   replay.onclick=()=>{document.querySelector<HTMLButtonElement>('#start')!.click();};
   enter(0);
   return {start,recordShot:()=>{shots++;},update:(dt:number,state:LessonState)=>{
@@ -31,6 +33,15 @@ export function createFlightTutorial(mobile:boolean,prepareGrab:()=>void){
     if(step===2){hold=state.braking&&state.speed<.025&&state.spin<.006?hold+dt:0;}
     const read=typed>=messages[step].length&&elapsed>2;
     if(!read)return;
+    if(step===6){
+      completionTime+=dt;
+      if(completionTime>=7){
+        panel.style.pointerEvents='none';
+        panel.style.opacity=String(reduced?0:Math.max(0,1-(completionTime-7)));
+      }
+      if(completionTime>=8){finished=true;panel.hidden=true;copy.textContent='';accessible.textContent='';}
+      return;
+    }
     if(step===1&&hold>.5)enter(2);
     else if(step===2&&hold>.7){prepareGrab();enter(3);}
     else if(step===3&&state.held)enter(4);
