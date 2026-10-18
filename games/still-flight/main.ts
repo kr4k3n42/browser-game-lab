@@ -3,7 +3,7 @@ import './style.css';
 import { createAstronautBody } from './body';
 import { createMobileControls } from './mobile';
 import { addWristRockets } from './rockets';
-import { createPlanetSystem } from './planets';
+import { createPlanetSystem, updatePlanetRotation } from './planets';
 import { launchMomentum } from './recoil';
 import { boxContact, ringContact, boxesContact, collisionImpulse } from './collision';
 
@@ -463,5 +463,6 @@ suit.position.copyFrom(position);suit.rotationQuaternion=body;camera.position.co
 hands.forEach((h,i)=>{const engaged=i===0?thrust.length()>0:turn.length()>0;h.light.setEnabled(engaged||braking);h.hand.position.set((i===0?-.36:.36)+(i===0?thrust.x*.08:0),-.3+(i===0?thrust.y*.08:0),.65+(i===0?thrust.z*.08:0));h.hand.rotation.set(i===1?turn.x*.3:0,i===1?turn.y*.3:0,i===1?turn.z*.3:0);h.fingers.forEach((f,j)=>f.rotation.x=braking?1.4:engaged&&j===0?.85:0);h.thumb.rotation.y=engaged||braking?(i===0?-.7:.7):0;});reassurance.hidden=!diagnostics;
 updateBody();
 updateNavigation();
+if(active&&!paused)updatePlanetRotation(planetSystem,dt);
 const nextCargo=cargo.find(c=>!c.visited);const distance=nextCargo?Vector3.Distance(position,nextCargo.root.position):0;goal.textContent=checkpoint===3?'ALL ANCHORS VISITED':`ANCHOR ${checkpoint+1} / 3 · ${distance.toFixed(1)} m`;telemetry.textContent=`${paused?'PAUSED · ESC TO RESUME':attached?`${latched?'ANCHORED':'GRIPPING'} · ${cargo[held].mass+astronautMass} kg`:'FREE DRIFT'} | ${velocity.length().toFixed(2)} m/s | ${(angular.length()*180/Math.PI).toFixed(1)} °/s`;const reachable=cargo.some(c=>Vector3.Distance(position,c.root.position)<2.5&&velocity.subtract(c.velocity).length()<1);gesture.textContent=attached?(latched?'ENTER · DETACH ANCHOR':'RELEASE SPACE · LET GO / ENTER · ANCHOR'):reachable?'HOLD SPACE · GRAB / ENTER · ANCHOR':diagnostics?'PALM DISPLAY · FLIGHT DISENGAGED':braking?'BOTH FISTS · STABILIZING':thrust.length()||turn.length()?'PINCH ENGAGED · THRUST ACTIVE':looking?'HEAD GLANCE HELD':'HANDS NEUTRAL · THRUST OFF';scene.render();});
 window.addEventListener('resize',()=>engine.resize());
