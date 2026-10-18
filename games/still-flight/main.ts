@@ -2,6 +2,7 @@ import { Engine, Scene, FreeCamera, Vector3, Quaternion, Matrix, Color3, Color4,
 import './style.css';
 import { createAstronautBody } from './body';
 import { createMobileControls } from './mobile';
+import { addWristRockets } from './rockets';
 import { boxContact, ringContact, boxesContact, collisionImpulse } from './collision';
 
 const canvas=document.querySelector<HTMLCanvasElement>('#flight')!;
@@ -347,6 +348,9 @@ const mobileControls=createMobileControls({
   release:()=>{if(held>=0&&!latched)releaseGrip();}
 });
 canvas.addEventListener('pointerdown',event=>{if(mobileControls.state.mobile&&event.pointerType==='touch')event.stopImmediatePropagation();},true);
+const wristRockets=addWristRockets(scene,camera,hands.map(h=>h.hand),planet,()=>active&&!paused);
+button.addEventListener('click',()=>wristRockets.reset());
+window.addEventListener('keydown',event=>{if(event.code==='KeyR'&&active&&!paused&&!event.repeat)wristRockets.reset();});
 engine.runRenderLoop(()=>{
 const dt=Math.min(engine.getDeltaTime()/1000,.04);
 let thrust=Vector3.Zero(),turn=Vector3.Zero();
@@ -404,4 +408,3 @@ updateBody();
 updateNavigation();
 const nextCargo=cargo.find(c=>!c.visited);const distance=nextCargo?Vector3.Distance(position,nextCargo.root.position):0;goal.textContent=checkpoint===3?'ALL ANCHORS VISITED':`ANCHOR ${checkpoint+1} / 3 · ${distance.toFixed(1)} m`;telemetry.textContent=`${paused?'PAUSED · ESC TO RESUME':attached?`${latched?'ANCHORED':'GRIPPING'} · ${cargo[held].mass+astronautMass} kg`:'FREE DRIFT'} | ${velocity.length().toFixed(2)} m/s | ${(angular.length()*180/Math.PI).toFixed(1)} °/s`;const reachable=cargo.some(c=>Vector3.Distance(position,c.root.position)<2.5&&velocity.subtract(c.velocity).length()<1);gesture.textContent=attached?(latched?'ENTER · DETACH ANCHOR':'RELEASE SPACE · LET GO / ENTER · ANCHOR'):reachable?'HOLD SPACE · GRAB / ENTER · ANCHOR':diagnostics?'PALM DISPLAY · FLIGHT DISENGAGED':braking?'BOTH FISTS · STABILIZING':thrust.length()||turn.length()?'PINCH ENGAGED · THRUST ACTIVE':looking?'HEAD GLANCE HELD':'HANDS NEUTRAL · THRUST OFF';scene.render();});
 window.addEventListener('resize',()=>engine.resize());
-
