@@ -121,6 +121,9 @@ kbd.pressed{background:#91e9df;color:#06131a;box-shadow:0 0 16px #91e9df55}
 .roll-gauge .axis-track.gauge-moving{border-color:#c6aa55}
 #motion-readout[hidden]{display:none}
 #hud #gesture{display:none}
+#fire-rockets{position:fixed;right:35px;bottom:165px;width:auto;padding:12px 20px;border:1px solid #91e9df99;border-radius:9px;background:#06131a88;color:#91e9df;z-index:6;touch-action:none}
+.mobile-flight #fire-rockets{position:static}
+#rocket-status{position:fixed;top:260px;left:50%;transform:translateX(-50%);color:#efb75d;font:11px monospace;text-align:center;pointer-events:none}
 .left-cluster{position:relative}
 #flight-status{top:81px;width:12px;height:12px;border-radius:50%;border:1px solid #c6aa55;background:transparent;text-shadow:none}
 #flight-status[data-state="stable"]{background:#91cba7;border-color:#91cba7;box-shadow:0 0 8px #91cba744}
@@ -132,4 +135,3 @@ kbd.pressed{background:#91e9df;color:#06131a;box-shadow:0 0 16px #91e9df55}
 @media(max-width:700px){.ctrl-key{left:calc(50% - 66px);width:32px;font-size:8px}}
 @media(max-width:700px){#motion-readout{font-size:9px;gap:12px;width:82vw}.motion-heading{font-size:8px;letter-spacing:.5px}.motion-axes{gap:5px}}
 @media(max-width:700px){#suit-reassurance{left:8%;width:38vw;padding:12px;font-size:12px}}
-
