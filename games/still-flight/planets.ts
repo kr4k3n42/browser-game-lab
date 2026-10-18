@@ -1,6 +1,12 @@
-import { Scene, Mesh, MeshBuilder, StandardMaterial, DynamicTexture, Color3, Vector3 } from '@babylonjs/core';
+import { Scene, Mesh, MeshBuilder, StandardMaterial, DynamicTexture, Color3, Vector3, Quaternion } from '@babylonjs/core';
 
-export type PlanetTarget={mesh:Mesh;radius:number;rings:Mesh[]};
+export type PlanetTarget={mesh:Mesh;radius:number;rings:Mesh[];spinAxis?:Vector3;spinRate?:number;initialRotation?:Quaternion};
+export function updatePlanetRotation(planets:PlanetTarget[],dt:number){
+  for(const p of planets){
+    if(!p.mesh.isEnabled()||!p.spinAxis||!p.spinRate)continue;
+    p.mesh.rotationQuaternion=Quaternion.RotationAxis(p.spinAxis,p.spinRate*dt).multiply(p.mesh.rotationQuaternion??Quaternion.Identity()).normalize();
+  }
+}
 export function createPlanetSystem(scene:Scene,original:Mesh):PlanetTarget[]{
   let seed=9821;const random=()=>{seed=(seed*16807)%2147483647;return seed/2147483647;};
   const specs=[
@@ -13,10 +19,18 @@ export function createPlanetSystem(scene:Scene,original:Mesh):PlanetTarget[]{
   return specs.map((s,index)=>{
     const mesh=index===0?original:MeshBuilder.CreateSphere(s.name,{diameter:s.radius*2,segments:40},scene);
     mesh.position.copyFrom(s.position);mesh.name=s.name;
+    const spinAxis=[new Vector3(.2,1,.12),new Vector3(-.3,1,.2),new Vector3(.4,1,-.25),new Vector3(-.45,1,-.3),new Vector3(.15,1,.5)][index].normalize();
+    const spinRate=[.055,.08,.065,-.045,.04][index];
+    const initialRotation=Quaternion.RotationAxis(Vector3.Cross(Vector3.Up(),spinAxis).normalize(),Math.acos(spinAxis.y));
+    mesh.rotationQuaternion=initialRotation.clone();
     const texture=new DynamicTexture(s.name+' surface',{width:1024,height:512},scene,false);
     const ctx=texture.getContext() as CanvasRenderingContext2D;ctx.fillStyle=s.colors[0];ctx.fillRect(0,0,1024,512);
     if(s.style==='bands'){
       for(let y=0;y<512;y+=3){ctx.fillStyle=s.colors[Math.floor(random()*3)];ctx.globalAlpha=.25+random()*.5;ctx.fillRect(0,y,1024,3+random()*10);}
+      for(let i=0;i<18;i++){
+        ctx.globalAlpha=.45;ctx.fillStyle=s.colors[i%3];ctx.beginPath();
+        ctx.ellipse(random()*1024,60+random()*392,10+random()*30,4+random()*10,.15,0,Math.PI*2);ctx.fill();
+      }
     }else{
       for(let i=0;i<650;i++){
         ctx.globalAlpha=.12+random()*.5;ctx.fillStyle=s.colors[1+Math.floor(random()*2)];
@@ -35,9 +49,9 @@ export function createPlanetSystem(scene:Scene,original:Mesh):PlanetTarget[]{
       for(let band=0;band<4;band++){
         const inner=s.radius*(1.35+band*.19),outer=inner+s.radius*.13;
         const ring=MeshBuilder.CreateRibbon(s.name+' rings',{pathArray:[inner,outer].map(radius=>Array.from({length:129},(_,k)=>new Vector3(Math.cos(k*Math.PI/64)*radius,0,Math.sin(k*Math.PI/64)*radius))),sideOrientation:Mesh.DOUBLESIDE},scene);
-        ring.parent=mesh;ring.rotation.z=.36;ring.rotation.x=.25;ring.material=ringMaterial;ring.isPickable=false;rings.push(ring);
+        ring.parent=mesh;ring.material=ringMaterial;ring.isPickable=false;rings.push(ring);
       }
     }
-    return {mesh,radius:s.radius,rings};
+    return {mesh,radius:s.radius,rings,spinAxis,spinRate,initialRotation};
   });
 }
