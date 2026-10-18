@@ -2,7 +2,7 @@ import { Scene, FreeCamera, TransformNode, Mesh, MeshBuilder, Vector3, Quaternio
 import type { PlanetTarget } from './planets';
 export type FragmentBody={root:TransformNode;mass:number;radius:number;velocity:Vector3;spin:Vector3;orientation:Quaternion;visited:boolean};
 
-export function addWristRockets(scene:Scene,camera:FreeCamera,hands:TransformNode[],planets:PlanetTarget[],canFire:()=>boolean,onFragment:(fragment:FragmentBody)=>void){
+export function addWristRockets(scene:Scene,camera:FreeCamera,hands:TransformNode[],planets:PlanetTarget[],canFire:()=>boolean,onFragment:(fragment:FragmentBody)=>void,onLaunch:(direction:Vector3)=>Vector3){
   const material=(name:string,color:string,emissive=false)=>{
     const m=new StandardMaterial(name,scene);m.diffuseColor=Color3.FromHexString(color);m.specularColor=new Color3(.08,.08,.08);
     if(emissive){m.disableLighting=true;m.emissiveColor=m.diffuseColor;}return m;
@@ -17,7 +17,7 @@ export function addWristRockets(scene:Scene,camera:FreeCamera,hands:TransformNod
     rim.parent=mount;rim.rotation.x=Math.PI/2;rim.position.z=.17;rim.material=shell;
     return mount;
   });
-  const shots:{mesh:TransformNode;velocity:Vector3;age:number}[]=[];
+  const shots:{mesh:TransformNode;velocity:Vector3;direction:Vector3;motorTime:number;age:number}[]=[];
   const fragments:FragmentBody[]=[];
   let cooldown=0,side=0,blast:Mesh|null=null,blastAge=0;
   const fireButton=document.createElement('button');fireButton.id='fire-rockets';fireButton.textContent='F · FIRE';fireButton.title='Fire wrist rocket toward crosshair';
@@ -51,7 +51,7 @@ export function addWristRockets(scene:Scene,camera:FreeCamera,hands:TransformNod
     const body=MeshBuilder.CreateCylinder('rocket',{height:.5,diameter:.09,tessellation:8},scene);body.parent=missile;body.material=shell;
     const nose=MeshBuilder.CreateCylinder('rocket nose',{height:.17,diameterTop:0,diameterBottom:.09,tessellation:8},scene);nose.parent=missile;nose.position.y=.335;nose.material=shell;
     const exhaust=MeshBuilder.CreateCylinder('rocket exhaust',{height:.65,diameterTop:.08,diameterBottom:0,tessellation:8},scene);exhaust.parent=missile;exhaust.position.y=-.55;exhaust.material=flame;
-    shots.push({mesh:missile,velocity:travel.scale(110),age:0});
+    shots.push({mesh:missile,velocity:onLaunch(travel),direction:travel,motorTime:0,age:0});
   }
   fireButton.onclick=launch;
   window.addEventListener('keydown',event=>{if(event.code==='KeyF'&&!event.repeat&&!event.ctrlKey&&!event.metaKey){event.preventDefault();launch();}});
@@ -63,7 +63,10 @@ export function addWristRockets(scene:Scene,camera:FreeCamera,hands:TransformNod
     if(!canFire())return;
     const dt=Math.min(scene.getEngine().getDeltaTime()/1000,.04);cooldown=Math.max(0,cooldown-dt);
     for(let i=shots.length-1;i>=0;i--){
-      const shot=shots[i],previous=shot.mesh.position.clone(),step=shot.velocity.scale(dt);shot.mesh.position.addInPlace(step);shot.age+=dt;
+      const shot=shots[i],previous=shot.mesh.position.clone();
+      const burn=Math.min(dt,Math.max(0,1.4-shot.motorTime));
+      shot.velocity.addInPlace(shot.direction.scale(70*burn));shot.motorTime+=burn;
+      const step=shot.velocity.scale(dt);shot.mesh.position.addInPlace(step);shot.age+=dt;
       // Swept sphere intersection prevents fast rockets passing through the planet.
       const segmentHit=(center:Vector3,radius:number)=>{
         const offset=previous.subtract(center),a=step.lengthSquared(),b=2*Vector3.Dot(offset,step),c=offset.lengthSquared()-radius*radius;
