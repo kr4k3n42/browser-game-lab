@@ -1,8 +1,8 @@
-import { Scene, FreeCamera, TransformNode, Mesh, MeshBuilder, Vector3, Quaternion, StandardMaterial, Color3 } from '@babylonjs/core';
+import { Scene, FreeCamera, TransformNode, Mesh, MeshBuilder, Vector3, Quaternion, StandardMaterial, Color3, Ray } from '@babylonjs/core';
 import type { PlanetTarget } from './planets';
 export type FragmentBody={root:TransformNode;mass:number;radius:number;velocity:Vector3;spin:Vector3;orientation:Quaternion;visited:boolean};
 
-export function addWristRockets(scene:Scene,camera:FreeCamera,hands:TransformNode[],planets:PlanetTarget[],canFire:()=>boolean,onFragment:(fragment:FragmentBody)=>void,onLaunch:(direction:Vector3)=>Vector3){
+export function addWristRockets(scene:Scene,camera:FreeCamera,hands:TransformNode[],planets:PlanetTarget[],canFire:()=>boolean,onFragment:(fragment:FragmentBody)=>void,onLaunch:(direction:Vector3)=>Vector3,getBodies:()=>FragmentBody[]=()=>[],onDestroy:(body:FragmentBody)=>void=body=>body.root.setEnabled(false),onPlatformImpulse:(body:FragmentBody,impulse:Vector3)=>void=(body,impulse)=>body.velocity.addInPlace(impulse.scale(1/body.mass))){
   const material=(name:string,color:string,emissive=false)=>{
     const m=new StandardMaterial(name,scene);m.diffuseColor=Color3.FromHexString(color);m.specularColor=new Color3(.08,.08,.08);
     if(emissive){m.disableLighting=true;m.emissiveColor=m.diffuseColor;}return m;
@@ -73,11 +73,33 @@ export function addWristRockets(scene:Scene,camera:FreeCamera,hands:TransformNod
         if(c<=0)return 0;const d=b*b-4*a*c;if(d<0||a<1e-8)return Infinity;
         const t=(-b-Math.sqrt(d))/(2*a);return t>=0&&t<=1?t:Infinity;
       };
-      let nearest=Infinity,planetHit:PlanetTarget|undefined,fragmentHit:FragmentBody|undefined;
-      planets.forEach(p=>{if(!p.mesh.isEnabled())return;const t=segmentHit(p.mesh.position,p.radius);if(t<nearest){nearest=t;planetHit=p;fragmentHit=undefined;}});
-      fragments.forEach(f=>{if(f.root.isDisposed())return;const t=segmentHit(f.root.position,f.radius);if(t<nearest){nearest=t;fragmentHit=f;planetHit=undefined;}});
+      let nearest=Infinity,planetHit:PlanetTarget|undefined,bodyHit:FragmentBody|undefined;
+      planets.forEach(p=>{if(!p.mesh.isEnabled())return;const t=segmentHit(p.mesh.position,p.radius);if(t<nearest){nearest=t;planetHit=p;bodyHit=undefined;}});
+      const bodies=Array.from(new Set([...getBodies(),...fragments]));
+      bodies.forEach(f=>{
+        if(f.root.isDisposed()||!f.root.isEnabled())return;
+        let t=Infinity;
+        if(f.radius>0)t=segmentHit(f.root.position,f.radius);
+        else{
+          // Intersect actual platform/ring geometry, leaving ring holes open.
+          const length=step.length(),ray=new Ray(previous,step.scale(1/Math.max(length,1e-8)),length);
+          for(const mesh of f.root.getChildMeshes()){
+            mesh.computeWorldMatrix(true);const hit=ray.intersectsMesh(mesh,false);
+            if(hit.hit&&hit.distance<=length)t=Math.min(t,hit.distance/length);
+          }
+        }
+        if(t<nearest){nearest=t;bodyHit=f;planetHit=undefined;}
+      });
       if(planetHit)explode(planetHit);
-      if(fragmentHit)fragmentHit.velocity.addInPlace(shot.velocity.normalizeToNew().scale(120/fragmentHit.mass));
+      if(bodyHit&&bodyHit.radius===0){
+        // Ring platforms absorb the round but cannot be destroyed.
+        onPlatformImpulse(bodyHit,shot.velocity.subtract(bodyHit.velocity).scale(.8));
+        notice.textContent='PLATFORM IMPACT · MOMENTUM TRANSFERRED';
+      }else if(bodyHit){
+        blast?.dispose();blast=MeshBuilder.CreateSphere('object explosion',{diameter:Math.max(1,bodyHit.radius*2||3),segments:12},scene);
+        blast.position.copyFrom(bodyHit.root.position);blast.material=fire;blastAge=0;
+        onDestroy(bodyHit);notice.textContent='TARGET DESTROYED';
+      }
       if(nearest<Infinity||shot.age>15){shot.mesh.dispose();shots.splice(i,1);}
     }
     if(blast){blastAge+=dt;blast.scaling.setAll(1+blastAge*.85);blast.visibility=Math.max(0,1-blastAge/1.8);if(blastAge>=1.8){blast.dispose();blast=null;}}
