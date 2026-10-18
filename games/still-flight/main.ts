@@ -3,6 +3,7 @@ import './style.css';
 import { createAstronautBody } from './body';
 import { createMobileControls } from './mobile';
 import { addWristRockets } from './rockets';
+import { createPlanetSystem } from './planets';
 import { boxContact, ringContact, boxesContact, collisionImpulse } from './collision';
 
 const canvas=document.querySelector<HTMLCanvasElement>('#flight')!;
@@ -45,9 +46,15 @@ for(let i=0;i<7;i++)star(new Vector3(-.5+i*.065,.32+Math.sin(i*1.3)*.08,1),.7,10
 for(let i=0;i<5;i++)star(new Vector3(.7+Math.sin(i)*.08,-.12+i*.055,1),.6,1100+i);
 const planet=MeshBuilder.CreateSphere('planet',{diameter:100,segments:48},scene);planet.position.set(90,-65,160);planet.material=mat('planet blue','#17496a');
 (planet.material as StandardMaterial).specularColor=Color3.Black();
+const planetSystem=createPlanetSystem(scene,planet);
 const positions=[new Vector3(0,0,12),new Vector3(10,4,22),new Vector3(-5,-3,32)];
 const anchors=positions.map((p,i)=>{const root=new TransformNode('anchor'+i,scene);root.position=p.clone();const box=MeshBuilder.CreateBox('platform',{width:3,height:.3+i*.45,depth:3},scene);box.parent=root;box.position.y=-1-i*.225;box.material=metal;const ring=MeshBuilder.CreateTorus('handhold',{diameter:1.4,thickness:.13},scene);ring.parent=root;ring.rotation.x=Math.PI/2;ring.material=cyan;return ring;});
-const cargo=anchors.map((ring,i)=>({root:ring.parent as TransformNode, mass:180+i*100, velocity:Vector3.Zero(), spin:Vector3.Zero(), orientation:Quaternion.Identity(), visited:false}));
+const cargo=anchors.map((ring,i)=>({root:ring.parent as TransformNode, mass:180+i*100,radius:0, velocity:Vector3.Zero(), spin:Vector3.Zero(), orientation:Quaternion.Identity(), visited:false}));
+function cargoHighlight(index:number,gripped:boolean){
+  if(index<3){anchors[index].material=gripped?gold:cyan;return;}
+  const mesh=cargo[index].root;
+  if('renderOutline' in mesh){const fragment=mesh as import('@babylonjs/core').Mesh;fragment.renderOutline=gripped;fragment.outlineColor=Color3.FromHexString('#efb75d');fragment.outlineWidth=.035;}
+}
 const astronautMass=100;
 const helmet=document.querySelector<HTMLElement>('#helmet')!;
 let impactFlash=0;
@@ -138,13 +145,13 @@ function releaseGrip(){
   const c=cargo[held],offset=rotate(gripOffset,c.orientation);
   velocity=c.velocity.add(Vector3.Cross(c.spin,offset));
   angular=rotate(c.spin,body.conjugate());
-  anchors[held].material=cyan;
+  cargoHighlight(held,false);
   held=-1;attached=false;latched=false;
   message.textContent='Released. Cargo and astronaut retain momentum.';
 }
 function grab(){
   if(held>=0)return;
-  const index=cargo.findIndex(c=>Vector3.Distance(position,c.root.position)<2.5&&velocity.subtract(c.velocity).length()<1);
+  const index=cargo.findIndex(c=>Vector3.Distance(position,c.root.position)<2.5+c.radius&&velocity.subtract(c.velocity).length()<1);
   if(index<0){message.textContent='Grab requires range < 2.5 m and relative speed < 1 m/s.';return;}
   const c=cargo[index],total=astronautMass+c.mass;
   c.velocity=c.velocity.scale(c.mass/total).add(velocity.scale(astronautMass/total));
@@ -152,7 +159,7 @@ function grab(){
   gripOffset=rotate(position.subtract(c.root.position),c.orientation.conjugate());
   gripOrientation=c.orientation.conjugate().multiply(body);
   held=index;attached=true;
-  anchors[index].material=gold;
+  cargoHighlight(index,true);
   if(!c.visited){c.visited=true;checkpoint++;}
   message.textContent='Grip secured. Thrusters now move the combined mass. Release Space to let go; Enter secures the anchor.';
 }
@@ -164,7 +171,8 @@ function bumpStations(){
     for(const y of [0,-.4,-.8]){
       const sample=position.add(rotate(new Vector3(0,y,0),body));
       const local=rotate(sample.subtract(c.root.position),c.orientation.conjugate());
-      const hit=boxContact(local,new Vector3(0,-1-i*.225,0),new Vector3(1.5,height/2,1.5),.32)??ringContact(local,.32);
+      const distance=local.length();
+      const hit=c.radius>0?(distance<c.radius+.32?{normal:distance>1e-6?local.scale(1/distance):Vector3.Up(),depth:c.radius+.32-distance}:null):boxContact(local,new Vector3(0,-1-i*.225,0),new Vector3(1.5,height/2,1.5),.32)??ringContact(local,.32);
       if(!hit)continue;
       const normal=rotate(hit.normal,c.orientation),invA=1/astronautMass,invB=1/c.mass,total=invA+invB;
       position.addInPlace(normal.scale((hit.depth+.001)*invA/total));
@@ -184,6 +192,16 @@ function collideCargo(){
   const box=(i:number)=>({center:cargo[i].root.position.add(rotate(new Vector3(0,-1-i*.225,0),cargo[i].orientation)),half:new Vector3(1.5,(.3+i*.45)/2,1.5),orientation:cargo[i].orientation});
   for(let a=0;a<cargo.length;a++)for(let b=a+1;b<cargo.length;b++){
     const ca=cargo[a],cb=cargo[b];
+    if(ca.radius>0||cb.radius>0){
+      const delta=cb.root.position.subtract(ca.root.position),distance=delta.length(),radius=(ca.radius||2.2)+(cb.radius||2.2);
+      if(distance<radius){
+        const normal=distance>1e-6?delta.scale(1/distance):Vector3.Right(),ma=ca.mass+(held===a?astronautMass:0),mb=cb.mass+(held===b?astronautMass:0);
+        const depth=radius-distance+.001;
+        ca.root.position.subtractInPlace(normal.scale(depth*mb/(ma+mb)));cb.root.position.addInPlace(normal.scale(depth*ma/(ma+mb)));
+        collisionImpulse(ca.velocity,cb.velocity,normal,ma,mb);
+      }
+      continue;
+    }
     let hit=boxesContact(box(a),box(b));
     // Ring rims use small spheres against the other base; their holes stay open.
     if(!hit)for(const [source,target] of [[a,b],[b,a]]){
@@ -336,6 +354,12 @@ function updateKeyboard(){
   if(actionName.textContent!==label)actionName.textContent=label;
 }
 const axis=(positive:string,negative:string)=>Number(keys.has(positive))-Number(keys.has(negative));
+function clearPlanetDebris(){
+  if(held>=3)releaseGrip();
+  cargo.splice(3).forEach(c=>c.root.dispose());beacons.splice(3).forEach(marker=>marker.remove());
+}
+button.addEventListener('click',clearPlanetDebris,true);
+window.addEventListener('keydown',event=>{if(event.code==='KeyR'&&active&&!paused&&!event.repeat)clearPlanetDebris();},true);
 function clear(){if(held>=0&&!latched)releaseGrip();keys.clear();mouseButtons.clear();looking=false;diagnostics=false;}
 function reset(){position=Vector3.Zero();velocity=Vector3.Zero();angular=Vector3.Zero();body=Quaternion.Identity();headX=headY=0;checkpoint=0;attached=false;held=-1;latched=false;diagnostics=false;cargo.forEach((c,i)=>{c.root.position.copyFrom(positions[i]);c.velocity.setAll(0);c.spin.setAll(0);c.orientation=Quaternion.Identity();c.root.rotationQuaternion=c.orientation;c.visited=false;anchors[i].material=cyan;});clear();message.textContent='Approach anchor 1 below 1 m/s. Hold Space within 2.5 m.';}
 button.onclick=()=>{active=true;paused=false;document.body.classList.add('running');button.textContent='RESET PRACTICE';reset();};
@@ -348,7 +372,12 @@ const mobileControls=createMobileControls({
   release:()=>{if(held>=0&&!latched)releaseGrip();}
 });
 canvas.addEventListener('pointerdown',event=>{if(mobileControls.state.mobile&&event.pointerType==='touch')event.stopImmediatePropagation();},true);
-const wristRockets=addWristRockets(scene,camera,hands.map(h=>h.hand),planet,()=>active&&!paused);
+const wristRockets=addWristRockets(scene,camera,hands.map(h=>h.hand),planetSystem,()=>active&&!paused,fragment=>{
+  cargo.push(fragment);
+  const marker=beacons[0].cloneNode(true) as HTMLDivElement;
+  marker.classList.remove('attached-beacon');marker.querySelector('.beacon-name')!.textContent=formatMass(fragment.mass);
+  marker.title='Planet fragment · '+formatMass(fragment.mass);navigation.append(marker);beacons.push(marker);
+});
 button.addEventListener('click',()=>wristRockets.reset());
 window.addEventListener('keydown',event=>{if(event.code==='KeyR'&&active&&!paused&&!event.repeat)wristRockets.reset();});
 engine.runRenderLoop(()=>{
@@ -359,7 +388,7 @@ const mobile=mobileControls.state;
 if(mobile.portrait&&active&&!paused){paused=true;clear();}
 const braking=active&&!paused&&(keys.has('KeyS')||mobile.brake);
 if(active&&!paused){
-  if((keys.has('Space')||mobile.grab)&&held<0&&cargo.some(c=>Vector3.Distance(position,c.root.position)<2.5&&velocity.subtract(c.velocity).length()<1))grab();
+  if((keys.has('Space')||mobile.grab)&&held<0&&cargo.some(c=>Vector3.Distance(position,c.root.position)<2.5+c.radius&&velocity.subtract(c.velocity).length()<1))grab();
   if(!looking){headX*=Math.exp(-dt*7);headY*=Math.exp(-dt*7);}
   if(!diagnostics&&!braking){
     thrust=new Vector3(axis('KeyD','KeyA')+mobile.x,Number(keys.has('KeyZ')||keys.has('ShiftLeft')||keys.has('ShiftRight'))-Number(keys.has('KeyC'))+mobile.up-mobile.down,axis('KeyW','KeyX')+mobile.z);
