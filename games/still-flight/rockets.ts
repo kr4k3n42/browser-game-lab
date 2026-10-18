@@ -57,7 +57,7 @@ export function addWristRockets(scene:Scene,camera:FreeCamera,hands:TransformNod
   window.addEventListener('keydown',event=>{if(event.code==='KeyF'&&!event.repeat&&!event.ctrlKey&&!event.metaKey){event.preventDefault();launch();}});
   function reset(){
     shots.splice(0).forEach(s=>s.mesh.dispose());fragments.splice(0).forEach(f=>f.root.dispose());blast?.dispose();blast=null;
-    planets.forEach(p=>p.mesh.setEnabled(true));cooldown=0;notice.textContent='';
+    planets.forEach(p=>{p.mesh.setEnabled(true);if(p.initialRotation)p.mesh.rotationQuaternion=p.initialRotation.clone();});cooldown=0;notice.textContent='';
   }
   scene.onBeforeRenderObservable.add(()=>{
     if(!canFire())return;
