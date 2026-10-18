@@ -1,6 +1,8 @@
 import { Scene, FreeCamera, TransformNode, Mesh, MeshBuilder, Vector3, Quaternion, StandardMaterial, Color3 } from '@babylonjs/core';
+import type { PlanetTarget } from './planets';
+export type FragmentBody={root:TransformNode;mass:number;radius:number;velocity:Vector3;spin:Vector3;orientation:Quaternion;visited:boolean};
 
-export function addWristRockets(scene:Scene,camera:FreeCamera,hands:TransformNode[],planet:Mesh,canFire:()=>boolean){
+export function addWristRockets(scene:Scene,camera:FreeCamera,hands:TransformNode[],planets:PlanetTarget[],canFire:()=>boolean,onFragment:(fragment:FragmentBody)=>void){
   const material=(name:string,color:string,emissive=false)=>{
     const m=new StandardMaterial(name,scene);m.diffuseColor=Color3.FromHexString(color);m.specularColor=new Color3(.08,.08,.08);
     if(emissive){m.disableLighting=true;m.emissiveColor=m.diffuseColor;}return m;
@@ -16,20 +18,23 @@ export function addWristRockets(scene:Scene,camera:FreeCamera,hands:TransformNod
     return mount;
   });
   const shots:{mesh:TransformNode;velocity:Vector3;age:number}[]=[];
-  const fragments:{mesh:Mesh;velocity:Vector3;age:number}[]=[];
+  const fragments:FragmentBody[]=[];
   let cooldown=0,side=0,blast:Mesh|null=null,blastAge=0;
   const fireButton=document.createElement('button');fireButton.id='fire-rockets';fireButton.textContent='F · FIRE';fireButton.title='Fire wrist rocket toward crosshair';
   const mobile=document.querySelector('.mobile-holds');(mobile??document.body).append(fireButton);
   const notice=document.createElement('div');notice.id='rocket-status';notice.setAttribute('role','status');document.body.append(notice);
-  function explode(){
+  function explode(target:PlanetTarget){
+    const planet=target.mesh;
     if(!planet.isEnabled())return;
-    planet.setEnabled(false);notice.textContent='PLANET DESTROYED · RESET PRACTICE TO RESTORE';
-    blast=MeshBuilder.CreateSphere('planet explosion',{diameter:100,segments:20},scene);blast.position.copyFrom(planet.position);blast.material=fire;blastAge=0;
-    for(let i=0;i<96;i++){
-      const y=1-2*(i+.5)/96,angle=i*2.399963,r=Math.sqrt(1-y*y),direction=new Vector3(Math.cos(angle)*r,y,Math.sin(angle)*r);
-      const chunk=MeshBuilder.CreatePolyhedron('planet debris',{type:1,size:1.5+Math.random()*4},scene);
-      chunk.position=planet.position.add(direction.scale(25+Math.random()*20));chunk.material=i%5===0?fire:rock;chunk.isPickable=false;
-      fragments.push({mesh:chunk,velocity:direction.scale(12+Math.random()*22),age:0});
+    planet.setEnabled(false);notice.textContent='DEBRIS FIELD · HOLD SPACE TO GRIP · ENTER TO ANCHOR';
+    blast?.dispose();blast=MeshBuilder.CreateSphere('planet explosion',{diameter:target.radius*2,segments:20},scene);blast.position.copyFrom(planet.position);blast.material=fire;blastAge=0;
+    for(let i=0;i<32;i++){
+      const y=1-2*(i+.5)/32,angle=i*2.399963,r=Math.sqrt(1-y*y),direction=new Vector3(Math.cos(angle)*r,y,Math.sin(angle)*r);
+      const chunk=MeshBuilder.CreatePolyhedron('planet debris',{type:1,size:.35+Math.random()*1.3},scene);
+      chunk.position=planet.position.add(direction.scale(target.radius*(.7+Math.random()*.25)));chunk.material=rock;chunk.isPickable=false;
+      const radius=chunk.getBoundingInfo().boundingSphere.radius;
+      const fragment:FragmentBody={root:chunk,radius,mass:Math.round(90+radius**3*120),velocity:direction.scale(.4+Math.random()*1.2),spin:new Vector3(Math.random()*.08,Math.random()*.08,Math.random()*.08),orientation:Quaternion.Identity(),visited:true};
+      fragments.push(fragment);onFragment(fragment);
     }
   }
   function launch(){
@@ -38,7 +43,7 @@ export function addWristRockets(scene:Scene,camera:FreeCamera,hands:TransformNod
     const mount=mounts[side++%mounts.length];mount.computeWorldMatrix(true);
     const origin=Vector3.TransformCoordinates(new Vector3(0,0,.22),mount.getWorldMatrix());
     const direction=camera.getForwardRay().direction.normalize();
-    const target=camera.position.add(direction.scale(600));
+    const target=camera.position.add(direction.scale(1500));
     const travel=target.subtract(origin).normalize();
     const missile=new TransformNode('fired rocket',scene);missile.position.copyFrom(origin);
     const axis=Vector3.Cross(Vector3.Up(),travel),angle=Math.acos(Math.max(-1,Math.min(1,travel.y)));
@@ -51,8 +56,8 @@ export function addWristRockets(scene:Scene,camera:FreeCamera,hands:TransformNod
   fireButton.onclick=launch;
   window.addEventListener('keydown',event=>{if(event.code==='KeyF'&&!event.repeat&&!event.ctrlKey&&!event.metaKey){event.preventDefault();launch();}});
   function reset(){
-    shots.splice(0).forEach(s=>s.mesh.dispose());fragments.splice(0).forEach(f=>f.mesh.dispose());blast?.dispose();blast=null;
-    planet.setEnabled(true);cooldown=0;notice.textContent='';
+    shots.splice(0).forEach(s=>s.mesh.dispose());fragments.splice(0).forEach(f=>f.root.dispose());blast?.dispose();blast=null;
+    planets.forEach(p=>p.mesh.setEnabled(true));cooldown=0;notice.textContent='';
   }
   scene.onBeforeRenderObservable.add(()=>{
     if(!canFire())return;
@@ -60,13 +65,19 @@ export function addWristRockets(scene:Scene,camera:FreeCamera,hands:TransformNod
     for(let i=shots.length-1;i>=0;i--){
       const shot=shots[i],previous=shot.mesh.position.clone(),step=shot.velocity.scale(dt);shot.mesh.position.addInPlace(step);shot.age+=dt;
       // Swept sphere intersection prevents fast rockets passing through the planet.
-      const toCenter=planet.position.subtract(previous),t=Math.max(0,Math.min(1,Vector3.Dot(toCenter,step)/Math.max(step.lengthSquared(),1e-8)));
-      const hit=planet.isEnabled()&&Vector3.DistanceSquared(previous.add(step.scale(t)),planet.position)<=2500;
-      if(hit)explode();
-      if(hit||shot.age>8){shot.mesh.dispose();shots.splice(i,1);}
+      const segmentHit=(center:Vector3,radius:number)=>{
+        const offset=previous.subtract(center),a=step.lengthSquared(),b=2*Vector3.Dot(offset,step),c=offset.lengthSquared()-radius*radius;
+        if(c<=0)return 0;const d=b*b-4*a*c;if(d<0||a<1e-8)return Infinity;
+        const t=(-b-Math.sqrt(d))/(2*a);return t>=0&&t<=1?t:Infinity;
+      };
+      let nearest=Infinity,planetHit:PlanetTarget|undefined,fragmentHit:FragmentBody|undefined;
+      planets.forEach(p=>{if(!p.mesh.isEnabled())return;const t=segmentHit(p.mesh.position,p.radius);if(t<nearest){nearest=t;planetHit=p;fragmentHit=undefined;}});
+      fragments.forEach(f=>{if(f.root.isDisposed())return;const t=segmentHit(f.root.position,f.radius);if(t<nearest){nearest=t;fragmentHit=f;planetHit=undefined;}});
+      if(planetHit)explode(planetHit);
+      if(fragmentHit)fragmentHit.velocity.addInPlace(shot.velocity.normalizeToNew().scale(120/fragmentHit.mass));
+      if(nearest<Infinity||shot.age>15){shot.mesh.dispose();shots.splice(i,1);}
     }
     if(blast){blastAge+=dt;blast.scaling.setAll(1+blastAge*.85);blast.visibility=Math.max(0,1-blastAge/1.8);if(blastAge>=1.8){blast.dispose();blast=null;}}
-    for(let i=fragments.length-1;i>=0;i--){const f=fragments[i];f.age+=dt;f.mesh.position.addInPlace(f.velocity.scale(dt));f.mesh.rotation.addInPlace(new Vector3(dt*.3,dt*.5,dt*.2));f.mesh.visibility=Math.min(1,Math.max(0,(9-f.age)/3));if(f.age>=9){f.mesh.dispose();fragments.splice(i,1);}}
   });
   return {reset};
 }
