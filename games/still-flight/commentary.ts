@@ -29,17 +29,21 @@ type Habit=keyof typeof remarks;
 export function createSuitCommentary(){
   const panel=document.createElement('aside');panel.id='suit-commentary';panel.hidden=true;
   panel.innerHTML='<div class="commentary-heading">SUIT COMPUTER · OBSERVATION</div><p></p><span class="commentary-accessible" aria-live="polite"></span>';
-  document.body.append(panel);
+  const stack=document.createElement('div');stack.id='suit-message-stack';
+  const tutorial=document.querySelector('#flight-tutorial');
+  if(tutorial)stack.append(tutorial);stack.append(panel);document.body.append(stack);
   const text=panel.querySelector('p')!,accessible=panel.querySelector('.commentary-accessible')!;
   const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
-  let clock=0,lastRemark=-20,shotTimes:number[]=[],destructionTimes:number[]=[],previousDestroyed=0,throttleTime=0,spinTime=0,visibleTime=0,current='',typed=0;
+  let clock=0,lastRemark=-12,shotTimes:number[]=[],destructionTimes:number[]=[],previousDestroyed=0,throttleTime=0,spinTime=0,visibleTime=0,current='',typed=0,emptySkySeen=false;
+  const pending=new Map<Habit,number>();
   const lastCategory=new Map<Habit,number>(),indices=new Map<Habit,number>();
   function speak(category:Habit){
-    if(!panel.hidden||clock-lastRemark<25||clock-(lastCategory.get(category)??-Infinity)<90)return false;
+    if(!panel.hidden||clock-lastRemark<12||clock-(lastCategory.get(category)??-Infinity)<60)return false;
     const list=remarks[category],index=indices.get(category)??0;current=list[index%list.length];indices.set(category,index+1);
     lastCategory.set(category,clock);lastRemark=clock;typed=visibleTime=0;panel.hidden=false;panel.style.opacity='1';accessible.textContent=current;text.textContent='';return true;
   }
-  function reset(){clock=0;lastRemark=-20;shotTimes=[];destructionTimes=[];previousDestroyed=0;throttleTime=spinTime=visibleTime=typed=0;current='';panel.hidden=true;accessible.textContent='';text.textContent='';lastCategory.clear();}
+  function reset(){clock=0;lastRemark=-12;shotTimes=[];destructionTimes=[];previousDestroyed=0;throttleTime=spinTime=visibleTime=typed=0;current='';panel.hidden=true;accessible.textContent='';text.textContent='';lastCategory.clear();pending.clear();emptySkySeen=false;}
+  function queue(category:Habit){if(!pending.has(category))pending.set(category,clock);}
   return {reset,recordShot:()=>{shotTimes.push(clock);},update:(dt:number,state:SuitHabits)=>{
     if(!state.active||state.paused)return;
     clock+=dt;
@@ -53,11 +57,17 @@ export function createSuitCommentary(){
     if(state.destroyed>previousDestroyed)for(let i=previousDestroyed;i<state.destroyed;i++)destructionTimes.push(clock);
     previousDestroyed=state.destroyed;destructionTimes=destructionTimes.filter(t=>clock-t<35);
     throttleTime=state.thrust>.85?throttleTime+dt:0;
-    spinTime=state.turn>.1&&state.spin>.3?spinTime+dt:0;
-    if(state.allPlanetsDestroyed&&speak('emptySky'))return;
-    if(destructionTimes.length>=3&&speak('destruction')){destructionTimes=[];return;}
-    if(shotTimes.length>=8&&speak('firing')){shotTimes=[];return;}
-    if(throttleTime>=12&&state.speed>6&&state.distance>100&&state.outwardSpeed>3&&speak('runaway')){throttleTime=0;return;}
-    if(spinTime>=8&&speak('spinning'))spinTime=0;
+    // All axes count, even after the pilot releases the rotation controls.
+    spinTime=state.spin>.3?spinTime+dt:0;
+    if(spinTime>=(state.spin>1.2?2.5:5)){queue('spinning');spinTime=0;}
+    if(throttleTime>=12&&state.speed>6&&state.distance>100&&state.outwardSpeed>3){queue('runaway');throttleTime=0;}
+    if(destructionTimes.length>=3){queue('destruction');destructionTimes=[];}
+    if(shotTimes.length>=8){queue('firing');shotTimes=[];}
+    if(state.allPlanetsDestroyed&&!emptySkySeen){queue('emptySky');emptySkySeen=true;}
+    for(const category of ['spinning','runaway','destruction','firing','emptySky'] as Habit[]){
+      const queued=pending.get(category);if(queued===undefined)continue;
+      if(clock-queued>30){pending.delete(category);continue;}
+      if(speak(category)){pending.delete(category);break;}
+    }
   }};
 }
