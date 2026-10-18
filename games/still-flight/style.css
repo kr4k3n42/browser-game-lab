@@ -122,6 +122,12 @@ kbd.pressed{background:#91e9df;color:#06131a;box-shadow:0 0 16px #91e9df55}
 .roll-gauge .axis-track.gauge-moving{border-color:#c6aa55}
 #motion-readout[hidden]{display:none}
 #hud #gesture{display:none}
+#flight-tutorial{position:fixed;top:270px;left:50%;transform:translateX(-50%);width:min(490px,76vw);padding:12px 16px;border:1px solid #86cfd266;border-radius:12px;background:#02060c99;color:#a3e7df;z-index:8;font:13px/1.6 system-ui}
+#flight-tutorial[hidden]{display:none}.tutorial-heading{font:9px monospace;letter-spacing:2px;color:#86cfd2}.tutorial-copy{margin:8px 0;min-height:64px}.typing .tutorial-copy::after{content:'▏';color:#91e9df}
+.tutorial-actions{display:flex;justify-content:flex-end;gap:10px}.tutorial-actions button{width:auto;padding:6px 9px;border:1px solid #86cfd255;border-radius:6px;background:transparent;color:#86cfd2;font:9px monospace}.tutorial-actions button[hidden]{display:none}
+.tutorial-accessible{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+.mobile-flight #flight-tutorial{top:140px;width:min(440px,70vw);font-size:11px;padding:9px 12px}
+@media(max-height:500px){.mobile-flight #flight-tutorial{top:115px;width:min(420px,58vw);font-size:10px;line-height:1.4}.mobile-flight .tutorial-copy{min-height:42px;margin:5px 0}}
 #fire-rockets{position:fixed;right:35px;bottom:165px;width:auto;padding:12px 20px;border:1px solid #91e9df99;border-radius:9px;background:#06131a88;color:#91e9df;z-index:6;touch-action:none}
 .mobile-flight #fire-rockets{position:static}
 #rocket-status{position:fixed;top:260px;left:50%;transform:translateX(-50%);color:#efb75d;font:11px monospace;text-align:center;pointer-events:none}
