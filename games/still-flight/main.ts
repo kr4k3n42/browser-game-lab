@@ -6,6 +6,7 @@ import { addWristRockets } from './rockets';
 import { createPlanetSystem, updatePlanetRotation } from './planets';
 import { launchMomentum } from './recoil';
 import { createFlightTutorial } from './tutorial';
+import { createSuitCommentary } from './commentary';
 import { boxContact, ringContact, boxesContact, collisionImpulse } from './collision';
 
 const canvas=document.querySelector<HTMLCanvasElement>('#flight')!;
@@ -382,6 +383,8 @@ const flightTutorial=createFlightTutorial(mobileControls.state.mobile,()=>{
   velocity.setAll(0);angular.setAll(0);
 });
 button.addEventListener('click',()=>flightTutorial.start());
+const suitCommentary=createSuitCommentary();
+button.addEventListener('click',()=>suitCommentary.reset());
 const wristRockets=addWristRockets(scene,camera,hands.map(h=>h.hand),planetSystem,()=>active&&!paused,fragment=>{
   cargo.push(fragment);
   const marker=beacons[0].cloneNode(true) as HTMLDivElement;
@@ -389,6 +392,7 @@ const wristRockets=addWristRockets(scene,camera,hands.map(h=>h.hand),planetSyste
   marker.title='Planet fragment · '+formatMass(fragment.mass);navigation.append(marker);beacons.push(marker);
 },direction=>{
   flightTutorial.recordShot();
+  suitCommentary.recordShot();
   if(held<0){
     const launch=launchMomentum(velocity,direction,astronautMass);
     velocity.copyFrom(launch.carrierVelocity);return launch.rocketVelocity;
@@ -472,6 +476,7 @@ hands.forEach((h,i)=>{const engaged=i===0?thrust.length()>0:turn.length()>0;h.li
 updateBody();
 updateNavigation();
 flightTutorial.update(dt,{active,paused,speed:velocity.length(),spin:angular.length(),thrust:thrust.length(),braking,held:held>=0});
+suitCommentary.update(dt,{active,paused,thrust:thrust.length(),turn:turn.length(),speed:velocity.length(),spin:angular.length(),distance:position.length(),outwardSpeed:Vector3.Dot(position,velocity)/Math.max(position.length(),.001),destroyed:planetSystem.filter(p=>!p.mesh.isEnabled()).length+cargo.filter(c=>!c.root.isEnabled()).length,allPlanetsDestroyed:planetSystem.every(p=>!p.mesh.isEnabled())});
 if(active&&!paused)updatePlanetRotation(planetSystem,dt);
 const nextCargo=cargo.find(c=>!c.visited);const distance=nextCargo?Vector3.Distance(position,nextCargo.root.position):0;goal.textContent=checkpoint===3?'ALL ANCHORS VISITED':`ANCHOR ${checkpoint+1} / 3 · ${distance.toFixed(1)} m`;telemetry.textContent=`${paused?'PAUSED · ESC TO RESUME':attached?`${latched?'ANCHORED':'GRIPPING'} · ${cargo[held].mass+astronautMass} kg`:'FREE DRIFT'} | ${velocity.length().toFixed(2)} m/s | ${(angular.length()*180/Math.PI).toFixed(1)} °/s`;const reachable=cargo.some(c=>Vector3.Distance(position,c.root.position)<2.5&&velocity.subtract(c.velocity).length()<1);gesture.textContent=attached?(latched?'ENTER · DETACH ANCHOR':'RELEASE SPACE · LET GO / ENTER · ANCHOR'):reachable?'HOLD SPACE · GRAB / ENTER · ANCHOR':diagnostics?'PALM DISPLAY · FLIGHT DISENGAGED':braking?'BOTH FISTS · STABILIZING':thrust.length()||turn.length()?'PINCH ENGAGED · THRUST ACTIVE':looking?'HEAD GLANCE HELD':'HANDS NEUTRAL · THRUST OFF';scene.render();});
 window.addEventListener('resize',()=>engine.resize());

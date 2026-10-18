@@ -126,6 +126,12 @@ kbd.pressed{background:#91e9df;color:#06131a;box-shadow:0 0 16px #91e9df55}
 #flight-tutorial[hidden]{display:none}.tutorial-heading{font:9px monospace;letter-spacing:2px;color:#86cfd2}.tutorial-copy{margin:8px 0;min-height:64px}.typing .tutorial-copy::after{content:'▏';color:#91e9df}
 .tutorial-actions{display:flex;justify-content:flex-end;gap:10px}.tutorial-actions button{width:auto;padding:6px 9px;border:1px solid #86cfd255;border-radius:6px;background:transparent;color:#86cfd2;font:9px monospace}.tutorial-actions button[hidden]{display:none}
 .tutorial-accessible{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+#tutorial-controls{position:fixed;top:242px;left:50%;transform:translateX(-50%);z-index:9}
+#suit-commentary{position:fixed;left:auto;right:7%;top:24%;bottom:auto;transform:none;width:min(260px,25vw);padding:12px 15px;border:1px solid #86cfd255;border-radius:12px;background:#02060c99;color:#a3e7df;text-align:left;font:12px/1.6 system-ui;z-index:9;pointer-events:none}
+#suit-commentary[hidden]{display:none}#suit-commentary p{display:block;margin:7px 0 0;line-height:1.6}
+.commentary-heading{font:8px monospace;letter-spacing:1.5px;color:#86cfd2}.commentary-accessible{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+.mobile-flight #suit-commentary{top:220px;right:8%;width:30vw;font-size:10px;padding:8px 10px}
+.mobile-flight #tutorial-controls{top:108px;left:auto;right:7%;transform:none}
 .mobile-flight #flight-tutorial{top:140px;width:min(440px,70vw);font-size:11px;padding:9px 12px}
 @media(max-height:500px){.mobile-flight #flight-tutorial{top:115px;width:min(420px,58vw);font-size:10px;line-height:1.4}.mobile-flight .tutorial-copy{min-height:42px;margin:5px 0}}
 #fire-rockets{position:fixed;right:35px;bottom:165px;width:auto;padding:12px 20px;border:1px solid #91e9df99;border-radius:9px;background:#06131a88;color:#91e9df;z-index:6;touch-action:none}
