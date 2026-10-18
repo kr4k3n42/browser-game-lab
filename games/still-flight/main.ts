@@ -63,7 +63,7 @@ function updateCollisionWarning(dt:number){
   impactFlash=Math.max(0,impactFlash-dt);
   let imminent=false;
   const danger=cargo.map((c,i)=>{
-    if(held===i)return false;
+    if(held===i||!c.root.isEnabled())return false;
     const relative=velocity.subtract(c.velocity),offset=c.root.position.subtract(position);
     const speedSquared=relative.lengthSquared();
     if(speedSquared<1)return false;
@@ -111,7 +111,7 @@ function updateNavigation(){
     const x=local.x/depth/tan/aspect*w/2,y=-local.y/depth/tan*h/2;
     const marker=beacons[i];
     const distance=delta.length(),visible=local.z>0&&inside(x,y);
-    marker.hidden=distance<.1;
+    marker.hidden=!c.root.isEnabled()||distance<.1;
     if(marker.hidden)return;
     // Behind the astronaut, choose the shortest turn; exactly aft uses the lower edge.
     const length=Math.hypot(x,y),dx=length>.001?x/length:0,dy=length>.001?y/length:1;
@@ -152,7 +152,7 @@ function releaseGrip(){
 }
 function grab(){
   if(held>=0)return;
-  const index=cargo.findIndex(c=>Vector3.Distance(position,c.root.position)<2.5+c.radius&&velocity.subtract(c.velocity).length()<1);
+  const index=cargo.findIndex(c=>c.root.isEnabled()&&Vector3.Distance(position,c.root.position)<2.5+c.radius&&velocity.subtract(c.velocity).length()<1);
   if(index<0){message.textContent='Grab requires range < 2.5 m and relative speed < 1 m/s.';return;}
   const c=cargo[index],total=astronautMass+c.mass;
   c.velocity=c.velocity.scale(c.mass/total).add(velocity.scale(astronautMass/total));
@@ -169,6 +169,7 @@ function bumpStations(){
   // Three overlapping spheres approximate helmet, torso and legs.
   for(let i=0;i<cargo.length;i++){
     const c=cargo[i],height=.3+i*.45;
+    if(!c.root.isEnabled())continue;
     for(const y of [0,-.4,-.8]){
       const sample=position.add(rotate(new Vector3(0,y,0),body));
       const local=rotate(sample.subtract(c.root.position),c.orientation.conjugate());
@@ -193,6 +194,7 @@ function collideCargo(){
   const box=(i:number)=>({center:cargo[i].root.position.add(rotate(new Vector3(0,-1-i*.225,0),cargo[i].orientation)),half:new Vector3(1.5,(.3+i*.45)/2,1.5),orientation:cargo[i].orientation});
   for(let a=0;a<cargo.length;a++)for(let b=a+1;b<cargo.length;b++){
     const ca=cargo[a],cb=cargo[b];
+    if(!ca.root.isEnabled()||!cb.root.isEnabled())continue;
     if(ca.radius>0||cb.radius>0){
       const delta=cb.root.position.subtract(ca.root.position),distance=delta.length(),radius=(ca.radius||2.2)+(cb.radius||2.2);
       if(distance<radius){
@@ -356,6 +358,7 @@ function updateKeyboard(){
 }
 const axis=(positive:string,negative:string)=>Number(keys.has(positive))-Number(keys.has(negative));
 function clearPlanetDebris(){
+  cargo.slice(0,3).forEach(c=>c.root.setEnabled(true));
   if(held>=3)releaseGrip();
   cargo.splice(3).forEach(c=>c.root.dispose());beacons.splice(3).forEach(marker=>marker.remove());
 }
@@ -387,6 +390,16 @@ const wristRockets=addWristRockets(scene,camera,hands.map(h=>h.hand),planetSyste
   c.velocity.copyFrom(launch.carrierVelocity);
   velocity=c.velocity.add(pointVelocity);
   return launch.rocketVelocity.add(pointVelocity);
+},()=>cargo,target=>{
+  const index=cargo.indexOf(target);
+  if(index===held)releaseGrip();
+  target.root.setEnabled(false);target.velocity.setAll(0);target.spin.setAll(0);
+  if(index>=0)beacons[index].hidden=true;
+},(target,impulse)=>{
+  const attachedToTarget=held>=0&&cargo[held]===target;
+  const delta=impulse.scale(1/(target.mass+(attachedToTarget?astronautMass:0)));
+  target.velocity.addInPlace(delta);
+  if(attachedToTarget)velocity.addInPlace(delta);
 });
 button.addEventListener('click',()=>wristRockets.reset());
 window.addEventListener('keydown',event=>{
@@ -402,7 +415,7 @@ const mobile=mobileControls.state;
 if(mobile.portrait&&active&&!paused){paused=true;clear();}
 const braking=active&&!paused&&(keys.has('KeyS')||mobile.brake);
 if(active&&!paused){
-  if((keys.has('Space')||mobile.grab)&&held<0&&cargo.some(c=>Vector3.Distance(position,c.root.position)<2.5+c.radius&&velocity.subtract(c.velocity).length()<1))grab();
+  if((keys.has('Space')||mobile.grab)&&held<0&&cargo.some(c=>c.root.isEnabled()&&Vector3.Distance(position,c.root.position)<2.5+c.radius&&velocity.subtract(c.velocity).length()<1))grab();
   if(!looking){headX*=Math.exp(-dt*7);headY*=Math.exp(-dt*7);}
   if(!diagnostics&&!braking){
     thrust=new Vector3(axis('KeyD','KeyA')+mobile.x,Number(keys.has('KeyZ')||keys.has('ShiftLeft')||keys.has('ShiftRight'))-Number(keys.has('KeyC'))+mobile.up-mobile.down,axis('KeyW','KeyX')+mobile.z);
@@ -425,6 +438,7 @@ if(active&&!paused){
     if(braking){c.velocity.scaleInPlace(Math.exp(-step*1.8*response));c.spin.scaleInPlace(Math.exp(-step*2.8*response));}
   }
   cargo.forEach(c=>{
+    if(!c.root.isEnabled())return;
     c.root.position.addInPlace(c.velocity.scale(step));
     const speed=c.spin.length();
     if(speed>0)c.orientation=Quaternion.RotationAxis(c.spin.scale(1/speed),speed*step).multiply(c.orientation).normalize();
